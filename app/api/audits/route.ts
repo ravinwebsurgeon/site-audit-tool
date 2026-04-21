@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { createAuditSchema } from '@/validators/audit';
 import { createAudit, processAudit } from '@/services/audit.service';
 import { getUserAudits } from '@/db/audit';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
+import type { Tier } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid JSON body' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Invalid JSON body' }, { status: 400 });
     }
 
     const result = createAuditSchema.safeParse(body);
@@ -22,11 +23,31 @@ export async function POST(req: NextRequest) {
     }
 
     const { url } = result.data;
-    const userId = req.headers.get('x-user-id') ?? undefined;
+    const forceNew = req.nextUrl.searchParams.get('refresh') === '1';
 
-    const { report, fromCache } = await createAudit(url, userId);
+    // Get session — optional auth
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    const tier = (session?.user?.subscriptionTier ?? 'FREE') as Tier;
 
-    // Fire-and-forget background processing (no separate worker process needed)
+    // Rate limiting: key = userId or IP
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous';
+    const rateLimitKey = userId ?? `ip:${ip}`;
+    const rateLimit = await checkRateLimit(rateLimitKey, tier);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Rate limit exceeded. You can run ${rateLimit.limit} audits per day. Resets at ${rateLimit.resetAt.toUTCString()}.`,
+        },
+        { status: 429, headers: rateLimitHeaders(rateLimit) }
+      );
+    }
+
+    const { report, fromCache } = await createAudit(url, userId, forceNew);
+
+    // Fire-and-forget background processing
     if (!fromCache && report.status === 'PENDING') {
       processAudit(report.id, url).catch((err) =>
         console.error(`[audit] processAudit failed for ${report.id}:`, err)
@@ -44,34 +65,28 @@ export async function POST(req: NextRequest) {
           fromCache,
         },
       },
-      { status: 201 }
+      { status: 201, headers: rateLimitHeaders(rateLimit) }
     );
   } catch (error) {
     console.error('POST /api/audits:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to create audit' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Failed to create audit' }, { status: 500 });
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const audits = await getUserAudits(userId);
+    const searchParams = req.nextUrl.searchParams;
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100);
+
+    const audits = await getUserAudits(session.user.id, limit);
     return NextResponse.json({ success: true, data: audits });
   } catch (error) {
     console.error('GET /api/audits:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to fetch audits' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Failed to fetch audits' }, { status: 500 });
   }
 }

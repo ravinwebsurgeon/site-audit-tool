@@ -14,12 +14,14 @@ model User {
   image            String?
   emailVerified    DateTime?
   subscriptionTier SubscriptionTier @default(FREE)
+  onboardingDone   Boolean          @default(false)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   accounts     Account[]
   sessions     Session[]
   auditReports AuditReport[]
+  subscription Subscription?
 
   @@map("users")
 }
@@ -62,6 +64,24 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model Subscription {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  tier           SubscriptionTier @default(FREE)
+  status         SubStatus        @default(ACTIVE)
+  auditsPerDay   Int              @default(5)
+  startedAt      DateTime         @default(now())
+  expiresAt      DateTime?
+  stripeCustomer String?
+  stripePriceId  String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
 }
 
 model AuditReport {
@@ -134,4 +154,10 @@ enum SubscriptionTier {
   FREE
   PRO
   ENTERPRISE
+}
+
+enum SubStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
 }

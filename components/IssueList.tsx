@@ -11,20 +11,17 @@ interface Issue {
   recommendation: string;
 }
 
-interface IssueListProps {
-  issues: Issue[];
-}
-
 const SEV = {
   CRITICAL: {
     order: 0,
     label: 'Critical',
-    dot: 'bg-red-500',
-    badge: 'bg-red-50 text-red-700 border-red-200',
-    bar: 'bg-red-500',
+    bg: 'rgba(239,68,68,0.1)',
+    color: '#ef4444',
+    border: 'rgba(239,68,68,0.25)',
+    leftBar: '#ef4444',
     icon: (
-      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       </svg>
     ),
@@ -32,12 +29,13 @@ const SEV = {
   WARNING: {
     order: 1,
     label: 'Warning',
-    dot: 'bg-amber-500',
-    badge: 'bg-amber-50 text-amber-700 border-amber-200',
-    bar: 'bg-amber-500',
+    bg: 'rgba(245,158,11,0.1)',
+    color: '#f59e0b',
+    border: 'rgba(245,158,11,0.25)',
+    leftBar: '#f59e0b',
     icon: (
-      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
@@ -45,42 +43,27 @@ const SEV = {
   PASSED: {
     order: 2,
     label: 'Passed',
-    dot: 'bg-emerald-500',
-    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    bar: 'bg-emerald-500',
+    bg: 'rgba(16,185,129,0.08)',
+    color: '#10b981',
+    border: 'rgba(16,185,129,0.2)',
+    leftBar: '#10b981',
     icon: (
-      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-          d="M5 13l4 4L19 7" />
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
       </svg>
     ),
   },
 };
 
-const CAT_ICON: Record<string, React.ReactNode> = {
-  SEO: (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
-  ),
-  PERFORMANCE: (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-        d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  ),
-  SECURITY: (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-    </svg>
-  ),
+const CAT_COLOR: Record<string, string> = {
+  SEO: '#3b82f6',
+  PERFORMANCE: '#f59e0b',
+  SECURITY: '#10b981',
 };
 
 type Filter = 'ALL' | 'CRITICAL' | 'WARNING' | 'PASSED';
 
-export default function IssueList({ issues }: IssueListProps) {
+export default function IssueList({ issues }: { issues: Issue[] }) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -101,54 +84,56 @@ export default function IssueList({ issues }: IssueListProps) {
     });
   }
 
-  const tabs: { key: Filter; label: string; count?: number; active: string; inactive: string }[] = [
+  const tabs: { key: Filter; label: string; count: number; activeStyle: React.CSSProperties; inactiveStyle: React.CSSProperties }[] = [
     {
       key: 'ALL',
       label: 'All',
       count: issues.length,
-      active: 'bg-slate-900 text-white border-slate-900',
-      inactive: 'bg-white text-slate-600 border-slate-200 hover:border-slate-400',
+      activeStyle: { background: '#0f172a', color: 'white', borderColor: '#0f172a' },
+      inactiveStyle: { background: 'white', color: '#475569', borderColor: '#e2e8f0' },
     },
     {
       key: 'CRITICAL',
       label: 'Critical',
       count: counts.CRITICAL,
-      active: 'bg-red-600 text-white border-red-600',
-      inactive: 'bg-white text-red-600 border-red-200 hover:border-red-400',
+      activeStyle: { background: '#dc2626', color: 'white', borderColor: '#dc2626' },
+      inactiveStyle: { background: 'white', color: '#dc2626', borderColor: 'rgba(239,68,68,0.3)' },
     },
     {
       key: 'WARNING',
       label: 'Warning',
       count: counts.WARNING,
-      active: 'bg-amber-500 text-white border-amber-500',
-      inactive: 'bg-white text-amber-600 border-amber-200 hover:border-amber-400',
+      activeStyle: { background: '#d97706', color: 'white', borderColor: '#d97706' },
+      inactiveStyle: { background: 'white', color: '#d97706', borderColor: 'rgba(245,158,11,0.3)' },
     },
     {
       key: 'PASSED',
       label: 'Passed',
       count: counts.PASSED,
-      active: 'bg-emerald-600 text-white border-emerald-600',
-      inactive: 'bg-white text-emerald-600 border-emerald-200 hover:border-emerald-400',
+      activeStyle: { background: '#059669', color: 'white', borderColor: '#059669' },
+      inactiveStyle: { background: 'white', color: '#059669', borderColor: 'rgba(16,185,129,0.3)' },
     },
   ];
 
   return (
     <div>
       {/* Filter tabs */}
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setFilter(t.key)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-all duration-150 ${
-              filter === t.key ? t.active : t.inactive
-            }`}
+            className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all duration-150"
+            style={filter === t.key ? t.activeStyle : t.inactiveStyle}
           >
             {t.label}
             <span
-              className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                filter === t.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-              }`}
+              className="rounded-full px-2 py-0.5 text-xs font-bold"
+              style={
+                filter === t.key
+                  ? { background: 'rgba(255,255,255,0.2)', color: 'white' }
+                  : { background: '#f1f5f9', color: '#64748b' }
+              }
             >
               {t.count}
             </span>
@@ -156,60 +141,60 @@ export default function IssueList({ issues }: IssueListProps) {
         ))}
       </div>
 
-      {/* Issue cards */}
-      <div className="space-y-2.5">
+      {/* Issue list */}
+      <div className="space-y-3">
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center py-12 text-slate-400">
-            <svg className="mb-3 h-10 w-10 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-sm">No issues in this category</p>
+          <div className="flex flex-col items-center py-16 text-slate-400">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
+              <svg className="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <p className="text-base font-medium text-slate-500">No issues in this category</p>
           </div>
         )}
 
         {filtered.map((issue) => {
           const sev = SEV[issue.severity];
           const isOpen = expanded.has(issue.id);
+          const catColor = CAT_COLOR[issue.category] ?? '#6366f1';
 
           return (
             <div
               key={issue.id}
-              className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+              className="overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md"
+              style={{ borderColor: '#e2e8f0', borderLeftWidth: 4, borderLeftColor: sev.leftBar }}
             >
-              {/* Row */}
               <button
                 onClick={() => toggle(issue.id)}
-                className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50/80"
+                className="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-slate-50/80"
               >
-                {/* Category icon */}
-                <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                  {CAT_ICON[issue.category] ?? (
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  )}
+                {/* Severity badge */}
+                <span
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold"
+                  style={{ background: sev.bg, color: sev.color, borderColor: sev.border }}
+                >
+                  {sev.icon}
+                  {sev.label}
                 </span>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${sev.badge}`}
-                    >
-                      {sev.icon}
-                      {sev.label}
-                    </span>
-                    <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                      {issue.category}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate font-medium text-slate-900">{issue.title}</p>
-                </div>
+                {/* Category chip */}
+                <span
+                  className="hidden sm:block shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wider"
+                  style={{ background: `${catColor}14`, color: catColor }}
+                >
+                  {issue.category}
+                </span>
+
+                {/* Title */}
+                <p className="flex-1 min-w-0 text-base font-semibold text-slate-800 truncate">
+                  {issue.title}
+                </p>
 
                 {/* Chevron */}
                 <svg
-                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                  className={`h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -218,25 +203,39 @@ export default function IssueList({ issues }: IssueListProps) {
 
               {/* Expanded content */}
               {isOpen && (
-                <div className="border-t border-slate-100 px-5 pb-5 pt-4 animate-fade-in">
+                <div className="border-t px-6 pb-6 pt-5 animate-slide-down" style={{ borderColor: '#f1f5f9' }}>
                   <div className="space-y-4">
+                    {/* What was found */}
                     <div>
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Issue
+                      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+                        Finding
                       </p>
-                      <p className="text-sm leading-relaxed text-slate-600">{issue.description}</p>
+                      <p className="text-base leading-relaxed text-slate-600">{issue.description}</p>
                     </div>
-                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-                      <div className="mb-1.5 flex items-center gap-1.5">
-                        <svg className="h-3.5 w-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-                          Recommendation
+
+                    {/* AI recommendation */}
+                    <div
+                      className="rounded-xl border p-5"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05))',
+                        borderColor: 'rgba(99,102,241,0.2)',
+                      }}
+                    >
+                      <div className="mb-2.5 flex items-center gap-2">
+                        <div
+                          className="flex h-6 w-6 items-center justify-center rounded-lg"
+                          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                        >
+                          <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
+                          AI Recommendation
                         </p>
                       </div>
-                      <p className="text-sm leading-relaxed text-indigo-900">{issue.recommendation}</p>
+                      <p className="text-base leading-relaxed text-slate-700">{issue.recommendation}</p>
                     </div>
                   </div>
                 </div>

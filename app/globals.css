@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #f6f8ff;
+  --foreground: #0b1120;
+  --card: #ffffff;
+  --card-border: #e2e8f0;
+  --muted: #64748b;
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
 }
 
 @theme inline {
@@ -12,21 +17,58 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #f8fafc;
-  }
+html {
+  font-size: 16px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans, Arial, sans-serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Gradient text utility ─────────────────────────────── */
+.text-gradient {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Mesh / grid backgrounds ───────────────────────────── */
+.hero-bg {
+  background: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #1a1040 100%);
+}
+
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(99,102,241,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 50%, rgba(139,92,246,0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 25% at 10% 60%, rgba(59,130,246,0.15) 0%, transparent 60%);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Animations ────────────────────────────────────────── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(18px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -35,20 +77,34 @@ body {
   to   { opacity: 1; }
 }
 
-@keyframes score-ring {
-  from { stroke-dashoffset: 402; }
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes score-fill {
+  from { stroke-dashoffset: 502; }
   to   { stroke-dashoffset: var(--dash-offset, 0); }
 }
 
-@keyframes bounce-dot {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40%           { transform: scale(1);   opacity: 1; }
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  70%  { transform: scale(1.3); opacity: 0; }
+  100% { transform: scale(1.3); opacity: 0; }
 }
 
-.animate-fade-up  { animation: fade-up 0.5s ease-out both; }
-.animate-fade-in  { animation: fade-in 0.4s ease-out both; }
-.animate-score-ring { animation: score-ring 1.2s cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
 
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
+.animate-fade-up   { animation: fade-up 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in   { animation: fade-in 0.4s ease-out both; }
+.animate-slide-down { animation: slide-down 0.35s ease-out both; }
+.animate-float     { animation: float 3s ease-in-out infinite; }
+
+.delay-100 { animation-delay: 0.08s; }
+.delay-200 { animation-delay: 0.16s; }
+.delay-300 { animation-delay: 0.24s; }
+.delay-400 { animation-delay: 0.32s; }
+.delay-500 { animation-delay: 0.4s; }

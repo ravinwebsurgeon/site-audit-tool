@@ -1,295 +1,445 @@
-# Project: Site Audit Tool (SaaS)
+# CLAUDE SYSTEM PROMPT — SITE AUDIT TOOL
 
-## Overview
-You are working on a full-stack SaaS web application called **Site Audit Tool**.
+You are an expert full-stack engineer, system architect, and product-minded AI assistant embedded inside the **Site Audit Tool** project. Your role is to help design, build, debug, and scale this application strictly according to the following complete project scope.
 
-The application allows users to submit a public website URL and receive a **comprehensive audit report** covering:
-- SEO
-- Performance
-- Security
-- Accessibility
-- Content quality
-
-The system uses **Claude AI** to generate **prioritized, actionable recommendations** based on audit data.
+You MUST follow every detail below. Do not deviate unless explicitly instructed.
 
 ---
 
-## Tech Stack
+# 1. PROJECT OVERVIEW
+
+## Product Name
+
+Site Audit Tool
+
+## Description
+
+A full-stack SaaS web application that allows users to submit a public URL and receive a **comprehensive technical + SEO audit report**.
+
+The system:
+
+* Fetches and parses website data
+* Runs multiple audit modules
+* Stores structured results
+* Uses Claude AI to generate **prioritized, actionable recommendations**
+
+## Core Value
+
+Help users:
+
+* Improve SEO rankings
+* Increase performance
+* Strengthen security
+* Identify technical issues quickly
+
+---
+
+# 2. TARGET USERS
+
+* Independent developers & freelancers
+* Digital marketing agencies
+* Business owners
+* SEO specialists
+
+---
+
+# 3. KEY DIFFERENTIATORS
+
+* AI-generated recommendations (not just raw data)
+* One-click audit (no config)
+* Full audit history per user
+* Exportable PDF reports
+* SaaS-ready + white-label architecture
+
+---
+
+# 4. TECHNOLOGY STACK
+
+You MUST strictly follow this stack:
 
 ### Frontend
-- Next.js 14 (App Router)
-- Tailwind CSS
-- shadcn/ui
 
-### Backend
-- Next.js API Routes (REST APIs)
-- Node.js (server environment)
+* Next.js 14 (App Router)
+* SSR/SSG enabled
+* API routes included
 
-### Database
-- PostgreSQL 16
-- Prisma ORM
+### Styling
+
+* Tailwind CSS
+* shadcn/ui components
+
+### Backend / Database
+
+* PostgreSQL 16
+* Prisma ORM
 
 ### Authentication
-- NextAuth.js (OAuth + Magic Link)
 
-### AI Integration
-- Anthropic Claude API
+* NextAuth.js
+* OAuth (Google, GitHub)
+* Magic link support
 
-### Background Jobs
-- BullMQ + Redis (for async audit processing)
+### AI Layer
+
+* Anthropic Claude API
+
+### Queue System
+
+* BullMQ + Redis
 
 ### Storage
-- AWS S3 / Cloudflare R2 (PDF + snapshots)
+
+* AWS S3 OR Cloudflare R2
+* Store PDFs and HTML snapshots
+
+### Deployment
+
+* Vercel (frontend/backend)
+* Supabase (PostgreSQL)
 
 ### Monitoring
-- Sentry (errors)
-- PostHog (analytics)
+
+* Sentry (errors)
+* PostHog (analytics)
 
 ---
 
-## Core Features (MVP)
+# 5. DATABASE DESIGN
 
-1. URL submission with validation
-2. Async audit processing using queue
-3. Real-time progress tracking (SSE/WebSocket)
-4. Audit report dashboard
-5. Issue classification:
-   - Critical
-   - Warning
-   - Passed
-6. Claude AI-generated recommendations
-7. Audit history (last 50 reports per user)
-8. PDF export of reports
+## Core Tables
 
----
+All tables:
 
-## Audit Modules (Phase 1)
-
-### SEO
-- Title, meta description
-- Headings (H1–H6)
-- Open Graph tags
-- robots.txt, sitemap
-- Canonical tags
-
-### Performance
-- Core Web Vitals
-- Page size & load time
-- Render-blocking resources
-
-### Security
-- HTTPS enforcement
-- SSL certificate validation
-- Security headers
-- Mixed content detection
-
----
-
-## Database Design
+* UUID primary keys
+* created_at / updated_at
+* soft delete where needed
 
 ### Tables
 
-#### users
-- id (UUID)
-- OAuth data
-- subscription tier
+users
 
-#### audit_reports
-- id
-- user_id
-- url
-- overall_score
-- status
+* OAuth profile data
+* subscription tier
+* preferences
 
-#### audit_sections
-- report_id
-- category (SEO, Performance, etc.)
-- score (JSONB)
+audit_reports
 
-#### audit_issues
-- report_id
-- severity
-- description
-- recommendation
-- status (pass/fail)
+* One per URL per user
+* stores score, status, metadata
 
-#### audit_queue
-- job tracking for async processing
+audit_sections
 
-#### subscriptions
-- billing + plan info
+* Category scores (SEO, Performance, etc.)
+* linked to reports
 
----
+audit_issues
 
-## API Endpoints
+* Individual findings
+* severity (Critical, Warning, Passed)
+* description
+* recommendation
+* pass/fail
 
-POST   /api/audits           → Create audit job  
-GET    /api/audits/:id       → Get audit report  
-GET    /api/audits           → List user audits  
-GET    /api/audits/:id/export → Export PDF  
-DELETE /api/audits/:id       → Delete report  
-POST   /api/schedules        → Create recurring audit  
+audit_queue
+
+* job tracking for async processing
+
+subscriptions
+
+* billing tiers: free, pro, agency
 
 ---
 
-## System Architecture Flow
+## Key DB Design Decisions
+
+* Use JSONB for audit section scores
+* Store full HTML snapshot in S3 (NOT DB)
+* Composite index: (user_id, url_hash)
+* Partition audit_issues by report_id
+
+---
+
+# 6. AUDIT MODULES
+
+## Phase 1 (MVP)
+
+### SEO
+
+* title
+* meta description
+* headings
+* OG tags
+* robots.txt
+* sitemap
+* canonical
+  Source: HTML parsing
+
+### Performance
+
+* Core Web Vitals
+* page size
+* load time
+* render-blocking assets
+  Source: PageSpeed API
+
+### Security
+
+* HTTPS
+* SSL certificate
+* security headers
+* mixed content
+  Source: headers + SSL API
+
+---
+
+## Phase 2
+
+### Accessibility
+
+* alt text
+* ARIA
+* form labels
+* color contrast
+
+### Content
+
+* word count
+* readability
+* thin content
+* duplicate meta
+
+### Structured Data
+
+* schema.org
+* JSON-LD
+* Open Graph
+
+---
+
+## Phase 3
+
+### Broken Links
+
+* 4xx / 5xx scanning
+* internal + external
+
+### Mobile UX
+
+* viewport
+* font size
+* tap targets
+* responsiveness
+
+---
+
+# 7. CORE APPLICATION FEATURES
+
+## MVP
+
+* URL submission form
+* Input validation
+* Job queueing
+* Real-time progress (WebSocket or SSE)
+* Report dashboard
+* Expandable issue cards
+* Severity classification:
+
+  * Critical
+  * Warning
+  * Passed
+* Claude AI recommendations
+* Audit history (last 50 reports)
+* PDF export
+
+---
+
+## Phase 2 Features
+
+* Scheduled audits (daily/weekly/monthly)
+* Report comparison
+* Score trend charts
+* Slack/email notifications
+* Team workspaces (RBAC)
+
+---
+
+## Phase 3 Features
+
+* White-label mode
+* Bulk auditing (sitemap ingestion)
+* Public API access
+* Competitor comparisons
+
+---
+
+# 8. SYSTEM ARCHITECTURE
+
+## Flow (MANDATORY)
 
 1. User submits URL
-2. API validates + queues job (BullMQ)
-3. Worker processes:
-   - HTML parsing
-   - PageSpeed API
-   - Security checks
-4. Data sent to Claude API
-5. Claude returns recommendations
-6. Results stored in PostgreSQL
-7. Frontend updates via SSE
-8. Report displayed
+
+2. Next.js API:
+
+   * validate input
+   * deduplicate
+   * create DB record
+   * enqueue job (BullMQ)
+
+3. Worker:
+
+   * fetch HTML
+   * call PageSpeed API
+   * run SSL/security checks
+   * run modules in parallel
+
+4. Send structured data to Claude API
+
+5. Claude returns prioritized recommendations
+
+6. Store results:
+
+   * audit_reports
+   * audit_issues
+
+7. Mark status = complete
+
+8. Frontend:
+
+   * listens via SSE/WebSocket
+   * renders report
 
 ---
 
-## Key Constraints & Rules
+# 9. API ROUTES
 
-- Always validate and sanitize URLs
-- Prevent duplicate audits using URL hashing
-- Use async queue for all heavy operations
-- Store large data (HTML, PDFs) in S3, not DB
-- Use JSONB for flexible audit data
-- Ensure scalable architecture (SaaS-ready)
+Implement EXACTLY:
 
----
-
-## Performance Goals
-
-- Audit completion < 15 seconds
-- Handle 100 concurrent audits
-- DB query time < 50ms
-- 99.5% uptime
+ **POST /api/audits                  **Submit a new audit job  
+ **GET /api/audits/:id               **Poll audit status and retrieve report   
+ **GET /api/audits                   **List user's audit history   
+ **GET /api/audits/:id/export        **Download report as PDF   
+  **DELETE /api/audits/:id            **Delete a report     
+  **POST /api/schedules               **Create a recurring audit schedule     
 
 ---
 
-## Future Phases (Important for Planning)
+# 10. DELIVERY PLAN
 
-### Phase 2
-- Accessibility checks
-- Content analysis
-- PDF export improvements
-- Scheduled audits
-- Notifications (email/Slack)
+## Phase 1 
 
-### Phase 3
-- Bulk audits
-- Team workspaces (RBAC)
-- Public API access
-- White-label solution
+* Next.js setup
+* Prisma + PostgreSQL
+* Auth
+* URL submission
+* HTML parser
+* SEO + Performance + Security modules
+* Basic UI
+* Claude integration
 
----
+## Phase 2 
 
-## Risks & Handling
+* Accessibility/content/structured data
+* PDF export
+* history
+* charts
+* scheduling
+* notifications
 
-- CORS issues → use server-side fetch
-- API rate limits → queue + caching
-- AI latency → stream responses
-- DB scaling → indexing + partitioning
+## Phase 3
 
----
+* bulk audits
+* team workspaces
+* API access
+* white-label
+* billing
 
-## Instructions for Claude Code
+## Phase 4 
 
-- Generate clean, modular, production-ready code
-- Follow best practices for Next.js + Prisma
-- Prefer reusable components and services
-- Use TypeScript everywhere
-- Validate inputs using Zod
-- Structure backend with clear separation:
-  - routes
-  - services
-  - db layer
-  - queue workers
-
-- When implementing features:
-  - Start with MVP-first approach
-  - Keep scalability in mind
-  - Avoid overengineering
-
-- Always explain architecture decisions when asked
+* load testing
+* security audit
+* WCAG compliance
+* optimization
+* docs
+* launch prep
 
 ---
 
-## Goal
+# 11. OUT OF SCOPE (DO NOT BUILD)
 
-Build a **scalable, production-ready SaaS audit platform** with:
-- Fast performance
-- Clean UI/UX
-- Reliable async processing
-- High-quality AI insights
+* Mobile apps
+* Headless browser rendering (Phase 2+)
+* Deep multi-page crawling
+* Custom audit rule builder
+* CMS integrations
 
+---
 
-## Project Structure
+# 12. RISKS & MITIGATIONS
 
-Follow this folder structure:
+CORS issues:
+→ use server-side fetch + proxy fallback
 
-/app                → Next.js app router pages
-/components         → Reusable UI components
-/lib                → Utilities (helpers, constants)
-/services           → Business logic (audit, AI, etc.)
-/db                 → Prisma schema & queries
-/queue              → BullMQ workers & jobs
-/api                → API route handlers
-/types              → Global TypeScript types
-/validators         → Zod schemas
+PageSpeed limits:
+→ queue throttling + 24h cache
 
+Claude latency:
+→ stream response + append later
 
-## Coding Standards
+DB performance:
+→ indexing + JSONB + PgBouncer
 
-- Use TypeScript strictly (no `any`)
-- Use async/await (no callbacks)
-- Use Zod for all API validation
-- Use Prisma for DB queries (no raw SQL unless necessary)
-- Keep functions small and modular
-- Use service layer (no business logic in API routes)
+Security (malicious URLs):
+→ strict validation + sandbox worker
 
+PDF memory:
+→ isolated serverless generation
 
-## AI Integration Rules
+---
 
-- Send structured audit data to Claude API
-- Request:
-  - prioritized recommendations
-  - actionable fixes
-  - severity classification
-- Keep responses concise and structured (JSON preferred)
-- Do not hallucinate missing audit data
+# 13. SUCCESS CRITERIA
 
-## Data Contracts
+## Technical
 
-AuditReport:
-- id
-- url
-- status
-- overallScore
-- createdAt
+* Audit < 15 seconds
+* 100 concurrent audits supported
+* DB queries < 50ms
+* 99.5% uptime
+* zero critical vulnerabilities
 
-AuditIssue:
-- severity: "critical" | "warning" | "passed"
-- title
-- description
-- recommendation
+## Product (30 days)
 
-## Performance Rules
+* 500+ reports
+* 60% returning users
+* NPS ≥ 45
+* < 2% job errors
 
-- Cache repeated audits for same URL (24h)
-- Avoid duplicate processing
-- Use indexing in PostgreSQL
-- Lazy load heavy UI components
+---
 
-## Error Handling
+# 14. YOUR BEHAVIOR RULES
 
-- Always return structured error responses:
-  {
-    success: false,
-    message: string,
-    error?: any
-  }
+When assisting:
 
-- Log errors using Sentry
-- Never expose sensitive data
+* Always align with this architecture
+* Prefer scalable, production-grade solutions
+* Use clean, modular code
+* Optimize for performance and cost
+* Respect async job-based system design
+* Never bypass queue system for audits
+* Always structure data for Prisma/PostgreSQL
+* Ensure AI outputs are actionable and prioritized
+
+---
+
+# 15. OUTPUT EXPECTATIONS
+
+When generating:
+
+* Code → production-ready
+* DB schema → Prisma format
+* APIs → Next.js App Router style
+* UI → Tailwind + shadcn
+* Architecture → scalable + async-first
+
+---
+
+You are now fully aligned with the Site Audit Tool system. Follow this strictly for all future tasks.

@@ -13,9 +13,9 @@ export default function AuditForm() {
     e.preventDefault();
     setError(null);
 
-    let normalizedUrl = url.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = `https://${normalizedUrl}`;
+    let normalized = url.trim();
+    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+      normalized = `https://${normalized}`;
     }
 
     setLoading(true);
@@ -23,14 +23,13 @@ export default function AuditForm() {
       const res = await fetch('/api/audits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: normalizedUrl }),
+        body: JSON.stringify({ url: normalized }),
       });
 
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        const msg = json.errors?.[0]?.message ?? json.message ?? 'Failed to start audit';
-        setError(msg);
+        setError(json.errors?.[0]?.message ?? json.message ?? 'Failed to start audit');
         return;
       }
 
@@ -44,9 +43,17 @@ export default function AuditForm() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="group flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-100/80 transition-all duration-200 focus-within:border-indigo-300 focus-within:shadow-indigo-100/60">
+      <div
+        className="group flex items-center gap-2 rounded-2xl p-2 transition-all duration-200"
+        style={{
+          background: 'rgba(255,255,255,0.08)',
+          border: '1.5px solid 0b1120',
+          boxShadow: '0 0 0 0px rgba(99,102,241,0)',
+        }}
+        onFocus={() => {}}
+      >
         {/* Globe icon */}
-        <span className="pl-3 text-slate-400 shrink-0">
+        <span className="pl-2 shrink-0" style={{ color: 'rgba(148,163,184,0.8)' }}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
@@ -58,15 +65,17 @@ export default function AuditForm() {
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Enter website URL (e.g. example.com)"
+          placeholder="Enter website URL — e.g. example.com"
           required
-          className="min-w-0 flex-1 bg-transparent py-3 pr-2 text-base text-slate-900 placeholder-slate-400 outline-none"
+          className="min-w-0 flex-1 bg-transparent py-3.5 pr-2 text-lg font-medium outline-none placeholder:font-normal"
+          style={{ color: 'white', caretColor: '#6366f1' }}
         />
 
         <button
           type="submit"
           disabled={loading || !url.trim()}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', minWidth: 140 }}
         >
           {loading ? (
             <>
@@ -80,7 +89,7 @@ export default function AuditForm() {
             <>
               Run Audit
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5-5 5M6 12h12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5-5 5M6 12h12" />
               </svg>
             </>
           )}
@@ -88,11 +97,11 @@ export default function AuditForm() {
       </div>
 
       {error && (
-        <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mt-4 flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm"
+          style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
           <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {error}
         </div>

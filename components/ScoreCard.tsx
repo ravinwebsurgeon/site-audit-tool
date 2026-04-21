@@ -4,75 +4,116 @@ interface ScoreCardProps {
   score: number;
 }
 
-interface ScoreConfig {
-  label: string;
-  topBorder: string;
-  iconBg: string;
-  labelBadge: string;
-  number: string;
-  bar: string;
+type Tier = 'good' | 'medium' | 'poor';
+
+function getTier(score: number): Tier {
+  if (score >= 80) return 'good';
+  if (score >= 50) return 'medium';
+  return 'poor';
 }
 
-function getConfig(score: number): ScoreConfig {
-  if (score >= 80) {
-    return {
-      label: 'Good',
-      topBorder: 'border-t-emerald-400',
-      iconBg: 'bg-emerald-50 text-emerald-600',
-      labelBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      number: 'text-emerald-600',
-      bar: 'bg-linear-to-r from-emerald-400 to-emerald-500',
-    };
-  }
-  if (score >= 50) {
-    return {
-      label: 'Needs Work',
-      topBorder: 'border-t-amber-400',
-      iconBg: 'bg-amber-50 text-amber-600',
-      labelBadge: 'bg-amber-50 text-amber-700 border-amber-200',
-      number: 'text-amber-600',
-      bar: 'bg-linear-to-r from-amber-400 to-amber-500',
-    };
-  }
-  return {
+const TIER_CONFIG = {
+  good: {
+    label: 'Good',
+    gradient: 'linear-gradient(135deg, #10b981, #34d399)',
+    glow: 'rgba(16,185,129,0.2)',
+    labelBg: 'rgba(16,185,129,0.12)',
+    labelColor: '#10b981',
+    labelBorder: 'rgba(16,185,129,0.3)',
+    bar: 'linear-gradient(90deg, #10b981, #34d399)',
+    scoreColor: '#10b981',
+    trackColor: 'rgba(16,185,129,0.12)',
+  },
+  medium: {
+    label: 'Needs Work',
+    gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+    glow: 'rgba(245,158,11,0.2)',
+    labelBg: 'rgba(245,158,11,0.12)',
+    labelColor: '#f59e0b',
+    labelBorder: 'rgba(245,158,11,0.3)',
+    bar: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+    scoreColor: '#f59e0b',
+    trackColor: 'rgba(245,158,11,0.1)',
+  },
+  poor: {
     label: 'Poor',
-    topBorder: 'border-t-red-400',
-    iconBg: 'bg-red-50 text-red-600',
-    labelBadge: 'bg-red-50 text-red-700 border-red-200',
-    number: 'text-red-600',
-    bar: 'bg-linear-to-r from-red-400 to-red-500',
-  };
-}
+    gradient: 'linear-gradient(135deg, #ef4444, #f87171)',
+    glow: 'rgba(239,68,68,0.2)',
+    labelBg: 'rgba(239,68,68,0.1)',
+    labelColor: '#ef4444',
+    labelBorder: 'rgba(239,68,68,0.3)',
+    bar: 'linear-gradient(90deg, #ef4444, #f87171)',
+    scoreColor: '#ef4444',
+    trackColor: 'rgba(239,68,68,0.08)',
+  },
+};
+
+const CAT_BG: Record<string, string> = {
+  SEO: 'rgba(59,130,246,0.1)',
+  PERFORMANCE: 'rgba(245,158,11,0.1)',
+  SECURITY: 'rgba(16,185,129,0.1)',
+};
+const CAT_COLOR: Record<string, string> = {
+  SEO: '#3b82f6',
+  PERFORMANCE: '#f59e0b',
+  SECURITY: '#10b981',
+};
 
 export default function ScoreCard({ category, icon, score }: ScoreCardProps) {
-  const cfg = getConfig(score);
+  const tier = getTier(score);
+  const cfg = TIER_CONFIG[tier];
 
   return (
     <div
-      className={`rounded-2xl border-x border-b border-t-4 border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md ${cfg.topBorder}`}
+      className="relative overflow-hidden rounded-2xl border bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+      style={{ borderColor: '#e2e8f0' }}
     >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg ${cfg.iconBg}`}>
-            {icon}
+      {/* Subtle background glow */}
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{ background: `radial-gradient(ellipse at top right, ${cfg.glow}, transparent 70%)` }}
+      />
+
+      <div className="relative">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-xl"
+              style={{ background: CAT_BG[category] ?? 'rgba(99,102,241,0.1)', color: CAT_COLOR[category] ?? '#6366f1' }}
+            >
+              {icon}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#94a3b8' }}>
+                {category}
+              </p>
+            </div>
+          </div>
+
+          <span
+            className="rounded-full px-3 py-1 text-xs font-semibold border"
+            style={{ background: cfg.labelBg, color: cfg.labelColor, borderColor: cfg.labelBorder }}
+          >
+            {cfg.label}
           </span>
-          <span className="text-sm font-semibold text-slate-700">{category}</span>
         </div>
-        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${cfg.labelBadge}`}>
-          {cfg.label}
-        </span>
-      </div>
 
-      <div className="flex items-baseline gap-1">
-        <span className={`text-4xl font-bold tabular-nums ${cfg.number}`}>{score}</span>
-        <span className="mb-0.5 text-sm font-medium text-slate-400">/100</span>
-      </div>
+        {/* Score number */}
+        <div className="flex items-baseline gap-1.5 mb-4">
+          <span className="text-6xl font-extrabold tabular-nums leading-none" style={{ color: cfg.scoreColor }}>
+            {score}
+          </span>
+          <span className="text-lg font-medium pb-1" style={{ color: '#cbd5e1' }}>/100</span>
+        </div>
 
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={`h-1.5 rounded-full transition-all duration-1000 ease-out ${cfg.bar}`}
-          style={{ width: `${score}%` }}
-        />
+        {/* Progress bar */}
+        <div className="h-2.5 overflow-hidden rounded-full" style={{ background: cfg.trackColor }}>
+          <div
+            className="h-2.5 rounded-full transition-all duration-1000 ease-out"
+            style={{ width: `${score}%`, background: cfg.bar }}
+          />
+        </div>
       </div>
     </div>
   );
