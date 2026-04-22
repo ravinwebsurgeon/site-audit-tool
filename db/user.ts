@@ -29,6 +29,10 @@ export async function updateUserProfile(userId: string, data: { name?: string; i
   return prisma.user.update({ where: { id: userId }, data });
 }
 
+export async function updateNotifyOnComplete(userId: string, value: boolean) {
+  return prisma.user.update({ where: { id: userId }, data: { notifyOnComplete: value } });
+}
+
 export async function getUserWithAudits(userId: string, limit = 50) {
   return prisma.user.findUnique({
     where: { id: userId },

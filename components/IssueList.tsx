@@ -123,7 +123,7 @@ export default function IssueList({ issues }: { issues: Issue[] }) {
           <button
             key={t.key}
             onClick={() => setFilter(t.key)}
-            className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all duration-150"
+            className="inline-flex items-center gap-2 rounded-xl border px-3 sm:px-4 py-1.5 sm:py-2 text-sm font-semibold transition-all duration-150"
             style={filter === t.key ? t.activeStyle : t.inactiveStyle}
           >
             {t.label}
@@ -168,11 +168,11 @@ export default function IssueList({ issues }: { issues: Issue[] }) {
             >
               <button
                 onClick={() => toggle(issue.id)}
-                className="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-slate-50/80"
+                className="flex w-full items-center gap-3 px-3 sm:px-6 py-3 sm:py-4 text-left transition-colors hover:bg-slate-50/80"
               >
                 {/* Severity badge */}
                 <span
-                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-bold"
                   style={{ background: sev.bg, color: sev.color, borderColor: sev.border }}
                 >
                   {sev.icon}
@@ -203,7 +203,7 @@ export default function IssueList({ issues }: { issues: Issue[] }) {
 
               {/* Expanded content */}
               {isOpen && (
-                <div className="border-t px-6 pb-6 pt-5 animate-slide-down" style={{ borderColor: '#f1f5f9' }}>
+                <div className="border-t px-3 sm:px-6 pb-4 sm:pb-6 pt-4 sm:pt-5 animate-slide-down" style={{ borderColor: '#f1f5f9' }}>
                   <div className="space-y-4">
                     {/* What was found */}
                     <div>

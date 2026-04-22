@@ -2,6 +2,7 @@
 
 import { SessionProvider } from 'next-auth/react';
 import type { Session } from 'next-auth';
+import { ToastProvider } from '@/components/Toast';
 
 export default function Providers({
   children,
@@ -12,7 +13,9 @@ export default function Providers({
 }) {
   return (
     <SessionProvider session={session} refetchInterval={5 * 60}>
-      {children}
+      <ToastProvider>
+        {children}
+      </ToastProvider>
     </SessionProvider>
   );
 }

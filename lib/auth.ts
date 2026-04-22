@@ -88,27 +88,29 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    // Enrich JWT token with user data from DB
     async jwt({ token, user, trigger, session: sessionUpdate }) {
-      // On sign-in, `user` is populated — fetch fresh DB data
-      if (user) {
+      // On sign-in (any provider), build a clean minimal token
+      if (user?.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { subscriptionTier: true, onboardingDone: true },
         });
-        token.id = user.id;
-        token.subscriptionTier = dbUser?.subscriptionTier ?? 'FREE';
-        token.onboardingDone = dbUser?.onboardingDone ?? false;
+        // Return a brand-new object — never spread `token` to avoid carrying OAuth bloat
+        // picture is intentionally omitted — long CDN URLs inflate the JWT cookie
+        return {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          subscriptionTier: dbUser?.subscriptionTier ?? 'FREE',
+          onboardingDone: dbUser?.onboardingDone ?? false,
+        };
       }
 
-      // Support client-side session update (e.g. after onboarding completes)
+      // Support client-side session update
       if (trigger === 'update' && sessionUpdate) {
-        if (sessionUpdate.onboardingDone !== undefined) {
-          token.onboardingDone = sessionUpdate.onboardingDone;
-        }
-        if (sessionUpdate.subscriptionTier !== undefined) {
-          token.subscriptionTier = sessionUpdate.subscriptionTier;
-        }
+        if (sessionUpdate.onboardingDone !== undefined) token.onboardingDone = sessionUpdate.onboardingDone;
+        if (sessionUpdate.subscriptionTier !== undefined) token.subscriptionTier = sessionUpdate.subscriptionTier;
+        if (sessionUpdate.name !== undefined) token.name = sessionUpdate.name;
       }
 
       return token;
@@ -120,6 +122,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id;
         session.user.subscriptionTier = token.subscriptionTier;
         session.user.onboardingDone = token.onboardingDone;
+        session.user.image = (token.picture as string | null) ?? session.user.image;
       }
       return session;
     },

@@ -108,3 +108,13 @@ body {
 .delay-300 { animation-delay: 0.24s; }
 .delay-400 { animation-delay: 0.32s; }
 .delay-500 { animation-delay: 0.4s; }
+
+/* ── Toast ─────────────────────────────────────────────── */
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(calc(100% + 1rem)); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.toast-enter {
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

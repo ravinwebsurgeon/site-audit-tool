@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface AuditCardProps {
   id: string;
@@ -9,6 +11,7 @@ interface AuditCardProps {
   status: string;
   createdAt: string | Date;
   completedAt: string | Date | null;
+  onDelete?: (id: string) => void;
 }
 
 function ScoreBadge({ score }: { score: number | null }) {
@@ -50,38 +53,62 @@ function timeAgo(date: string | Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function AuditCard({ id, url, overallScore, status, createdAt, completedAt }: AuditCardProps) {
+export default function AuditCard({ id, url, overallScore, status, createdAt, completedAt, onDelete }: AuditCardProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   let displayUrl = url;
-  try {
-    displayUrl = new URL(url).hostname;
-  } catch { /* keep original */ }
+  try { displayUrl = new URL(url).hostname; } catch { /* keep original */ }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    await onDelete!(id);
+    setDeleting(false);
+    setModalOpen(false);
+  }
 
   return (
-    <Link
-      href={`/audit/${id}`}
-      className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 hover:border-blue-300 hover:shadow-md transition-all duration-200"
-    >
-      <ScoreBadge score={overallScore} />
+    <>
+      <div className="group relative flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 hover:border-blue-300 hover:shadow-md transition-all duration-200">
+        <Link href={`/audit/${id}`} className="absolute inset-0 rounded-xl" aria-label={`View audit for ${displayUrl}`} />
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <p className="font-semibold text-slate-900 truncate text-sm">{displayUrl}</p>
-          <StatusPill status={status} />
+        <ScoreBadge score={overallScore} />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="font-semibold text-slate-900 truncate text-sm">{displayUrl}</p>
+            <StatusPill status={status} />
+          </div>
+          <p className="text-xs text-slate-400 truncate">{url}</p>
         </div>
-        <p className="text-xs text-slate-400 truncate">{url}</p>
+
+        <div className="relative z-10 flex items-center gap-3 shrink-0">
+          <p className="text-xs text-slate-400">{timeAgo(completedAt ?? createdAt)}</p>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.preventDefault(); setModalOpen(true); }}
+              className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="Delete report"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+          <svg className="h-4 w-4 text-slate-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
       </div>
 
-      <div className="text-right shrink-0">
-        <p className="text-xs text-slate-400">{timeAgo(completedAt ?? createdAt)}</p>
-        <svg
-          className="h-4 w-4 text-slate-300 group-hover:text-blue-500 transition-colors ml-auto mt-1"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </Link>
+      <ConfirmModal
+        open={modalOpen}
+        title="Delete Report"
+        message="This audit report will be permanently deleted. This cannot be undone."
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setModalOpen(false)}
+      />
+    </>
   );
 }

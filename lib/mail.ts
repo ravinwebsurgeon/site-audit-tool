@@ -76,6 +76,92 @@ function magicLinkHtml(url: string, siteName: string): string {
 </html>`;
 }
 
+interface SendAuditCompleteParams {
+  to: string;
+  reportId: string;
+  auditUrl: string;
+  overallScore: number;
+  criticalCount: number;
+  warningCount: number;
+  passedCount: number;
+  siteName?: string;
+  appUrl?: string;
+}
+
+function auditCompleteHtml(p: SendAuditCompleteParams): string {
+  const { auditUrl, overallScore, criticalCount, warningCount, passedCount, siteName = 'SiteAudit', appUrl = 'https://siteaudit.app' } = p;
+  const scoreColor = overallScore >= 80 ? '#16a34a' : overallScore >= 50 ? '#d97706' : '#dc2626';
+  const scoreLabel = overallScore >= 80 ? 'Excellent' : overallScore >= 50 ? 'Needs Work' : 'Poor';
+  const reportLink = `${appUrl}/audit/${p.reportId}`;
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:600px;margin:40px auto;padding:0 20px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:40px">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:linear-gradient(135deg,#2563eb,#4f46e5);border-radius:12px;margin-bottom:24px">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0f172a">Audit complete!</h1>
+      <p style="margin:0 0 24px;font-size:14px;color:#64748b;word-break:break-all">${auditUrl}</p>
+
+      <div style="text-align:center;padding:24px;background:#f8fafc;border-radius:12px;margin-bottom:24px">
+        <div style="font-size:56px;font-weight:800;color:${scoreColor};line-height:1">${overallScore}</div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:4px">Overall Score · ${scoreLabel}</div>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:28px">
+        <div style="flex:1;padding:16px;background:#fef2f2;border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#dc2626">${criticalCount}</div>
+          <div style="font-size:12px;color:#dc2626;margin-top:2px">Critical</div>
+        </div>
+        <div style="flex:1;padding:16px;background:#fffbeb;border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#d97706">${warningCount}</div>
+          <div style="font-size:12px;color:#d97706;margin-top:2px">Warnings</div>
+        </div>
+        <div style="flex:1;padding:16px;background:#f0fdf4;border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#16a34a">${passedCount}</div>
+          <div style="font-size:12px;color:#16a34a;margin-top:2px">Passed</div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <a href="${reportLink}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600">
+          View Full Report →
+        </a>
+      </div>
+
+      <hr style="margin:28px 0;border:none;border-top:1px solid #f1f5f9">
+      <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center">
+        You received this because you enabled audit notifications in ${siteName}.<br>
+        <a href="${appUrl}/settings" style="color:#6366f1">Manage notification preferences</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function sendAuditCompleteEmail(params: SendAuditCompleteParams): Promise<void> {
+  const { to, siteName = 'SiteAudit' } = params;
+  const subject = `Audit complete — score ${params.overallScore}/100`;
+  const html = auditCompleteHtml(params);
+
+  if (process.env.RESEND_API_KEY) {
+    try { await sendViaResend(to, subject, html); return; } catch {}
+  }
+  if (process.env.EMAIL_SERVER) {
+    await sendViaSMTP(to, subject, html);
+    return;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[mail] Audit complete email to ${to} (score ${params.overallScore})`);
+    return;
+  }
+  throw new Error(`No email provider configured for ${siteName}`);
+}
+
 export async function sendMagicLink({ to, url, siteName = 'SiteAudit' }: SendMagicLinkParams): Promise<void> {
   const subject = `Sign in to ${siteName}`;
   const html = magicLinkHtml(url, siteName);

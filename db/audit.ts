@@ -42,19 +42,41 @@ export async function getAuditById(id: string) {
   });
 }
 
-export async function getUserAudits(userId: string, limit = 50) {
+export async function getUserAudits(
+  userId: string,
+  options: { page?: number; pageSize?: number; limit?: number } = {}
+) {
+  const { page = 1, pageSize = 10, limit } = options;
+  const take = limit ?? pageSize;
+  const skip = limit ? 0 : (page - 1) * pageSize;
+
+  const [data, total] = await Promise.all([
+    prisma.auditReport.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+      select: {
+        id: true,
+        url: true,
+        status: true,
+        overallScore: true,
+        createdAt: true,
+        completedAt: true,
+      },
+    }),
+    prisma.auditReport.count({ where: { userId } }),
+  ]);
+
+  return { data, total };
+}
+
+export async function getScoreTrend(userId: string, limit = 20) {
   return prisma.auditReport.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
+    where: { userId, status: 'COMPLETED', overallScore: { not: null } },
+    orderBy: { completedAt: 'asc' },
     take: limit,
-    select: {
-      id: true,
-      url: true,
-      status: true,
-      overallScore: true,
-      createdAt: true,
-      completedAt: true,
-    },
+    select: { id: true, url: true, overallScore: true, completedAt: true, createdAt: true },
   });
 }
 

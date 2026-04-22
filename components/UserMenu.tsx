@@ -75,7 +75,7 @@ export default function UserMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-200/60 animate-fade-in">
+        <div className="absolute right-0 top-10 z-50 w-56 sm:w-64 rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-200/60 animate-fade-in">
           {/* User info */}
           <div className="flex items-center gap-3 border-b border-slate-50 px-4 py-3.5">
             <Avatar name={user.name} image={user.image} />
@@ -99,6 +99,16 @@ export default function UserMenu() {
 
           {/* Nav items */}
           <div className="p-1.5">
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </Link>
             <Link
               href="/dashboard"
               onClick={() => setOpen(false)}

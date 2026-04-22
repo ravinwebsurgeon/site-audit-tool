@@ -379,10 +379,10 @@ Implement EXACTLY:
 CORS issues:
 → use server-side fetch + proxy fallback
 
-PageSpeed limits:
+PageSpeed API Rate limits:
 → queue throttling + 24h cache
 
-Claude latency:
+Claude Api latency:
 → stream response + append later
 
 DB performance:

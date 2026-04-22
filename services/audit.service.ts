@@ -11,13 +11,17 @@ import { fetchPage } from '@/lib/fetcher';
 import { auditSeo } from './seo.service';
 import { auditPerformance } from './performance.service';
 import { auditSecurity } from './security.service';
+import { auditAccessibility } from './accessibility.service';
 import { analyzeWithAi } from './ai.service';
+import { sendAuditCompleteEmail } from '@/lib/mail';
+import { prisma } from '@/lib/prisma';
 import type {
   AuditCategory,
   AuditData,
   SeoAuditData,
   PerformanceAuditData,
   SecurityAuditData,
+  AccessibilityAuditData,
 } from '@/types';
 
 export async function createAudit(url: string, userId?: string, forceNew = false) {
@@ -39,29 +43,34 @@ export async function processAudit(reportId: string, url: string): Promise<void>
   await updateAuditStatus(reportId, 'PROCESSING');
 
   try {
-    // Fetch ONCE — all three services share the same page data
+    // Fetch ONCE — all four services share the same page data
     const page = await fetchPage(url);
 
-    const [seo, performance, security] = await Promise.all([
+    const [seo, performance, security, accessibility] = await Promise.all([
       auditSeo(url, page),
       auditPerformance(url, page),
       auditSecurity(url, page),
+      auditAccessibility(url, page),
     ]);
 
-    const auditData: AuditData = { url, seo, performance, security };
+    const auditData: AuditData = { url, seo, performance, security, accessibility };
     const aiResult = await analyzeWithAi(auditData);
 
     const seoScore = computeSeoScore(seo);
     const perfScore = computePerformanceScore(performance);
     const secScore = computeSecurityScore(security);
+    const accessScore = computeAccessibilityScore(accessibility);
 
-    // Weighted overall — SEO 35% · Performance 40% · Security 25%
-    const overallScore = Math.round(seoScore * 0.35 + perfScore * 0.40 + secScore * 0.25);
+    // Weighted overall — SEO 30% · Performance 35% · Security 20% · Accessibility 15%
+    const overallScore = Math.round(
+      seoScore * 0.30 + perfScore * 0.35 + secScore * 0.20 + accessScore * 0.15
+    );
 
     await saveAuditSections(reportId, [
       { category: 'SEO' as AuditCategory, score: seoScore, data: seo as unknown as Record<string, unknown> },
       { category: 'PERFORMANCE' as AuditCategory, score: perfScore, data: performance as unknown as Record<string, unknown> },
       { category: 'SECURITY' as AuditCategory, score: secScore, data: security as unknown as Record<string, unknown> },
+      { category: 'ACCESSIBILITY' as AuditCategory, score: accessScore, data: accessibility as unknown as Record<string, unknown> },
     ]);
 
     await saveAuditIssues(
@@ -75,15 +84,45 @@ export async function processAudit(reportId: string, url: string): Promise<void>
       }))
     );
 
+    const finalScore = Math.min(100, Math.max(0, overallScore));
     await updateAuditStatus(reportId, 'COMPLETED', {
-      overallScore: Math.min(100, Math.max(0, overallScore)),
+      overallScore: finalScore,
       completedAt: new Date(),
     });
+
+    // Fire-and-forget: notify user if they have notifications enabled
+    notifyUserIfEnabled(reportId, finalScore).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error during audit';
     await updateAuditStatus(reportId, 'FAILED', { errorMessage: message });
     throw error;
   }
+}
+
+async function notifyUserIfEnabled(reportId: string, score: number): Promise<void> {
+  const report = await prisma.auditReport.findUnique({
+    where: { id: reportId },
+    include: {
+      user: { select: { email: true, notifyOnComplete: true } },
+      issues: { select: { severity: true } },
+    },
+  });
+  if (!report?.user?.notifyOnComplete || !report.user.email) return;
+
+  const criticalCount = report.issues.filter((i: { severity: string }) => i.severity === 'CRITICAL').length;
+  const warningCount = report.issues.filter((i: { severity: string }) => i.severity === 'WARNING').length;
+  const passedCount = report.issues.filter((i: { severity: string }) => i.severity === 'PASSED').length;
+
+  await sendAuditCompleteEmail({
+    to: report.user.email,
+    reportId,
+    auditUrl: report.url,
+    overallScore: score,
+    criticalCount,
+    warningCount,
+    passedCount,
+    appUrl: process.env.NEXTAUTH_URL ?? 'https://siteaudit.app',
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -271,5 +310,63 @@ function computeSecurityScore(sec: SecurityAuditData): number {
   if (sec.fingerprintingExposed) score -= 5;
 
   // Cap and floor
+  return Math.min(100, Math.max(0, score));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACCESSIBILITY SCORE  (additive from 0)
+// ─────────────────────────────────────────────────────────────────────────────
+function computeAccessibilityScore(a: AccessibilityAuditData): number {
+  let score = 0;
+
+  // Language attribute (10 pts)
+  if (a.hasLangAttribute) score += 10;
+
+  // Image alt text (20 pts)
+  if (a.totalImages === 0) {
+    score += 20;
+  } else {
+    const altRatio = 1 - a.imagesWithoutAlt / a.totalImages;
+    score += Math.round(altRatio * 20);
+  }
+
+  // Skip link (10 pts)
+  if (a.hasSkipLink) score += 10;
+
+  // Heading hierarchy (15 pts)
+  if (a.headingHierarchyValid) score += 15;
+
+  // Buttons accessible text (15 pts)
+  if (a.totalButtons === 0) {
+    score += 15;
+  } else {
+    const ratio = 1 - a.buttonsWithoutText / a.totalButtons;
+    score += Math.round(ratio * 15);
+  }
+
+  // Links accessible text (10 pts)
+  if (a.totalLinks === 0) {
+    score += 10;
+  } else {
+    const ratio = 1 - a.linksWithoutText / a.totalLinks;
+    score += Math.round(ratio * 10);
+  }
+
+  // Form labels (10 pts)
+  if (a.totalFormInputs === 0) {
+    score += 10;
+  } else {
+    const ratio = 1 - a.formInputsWithoutLabel / a.totalFormInputs;
+    score += Math.round(ratio * 10);
+  }
+
+  // ARIA usage (5 pts)
+  if (a.hasAriaLabels) score += 3;
+  if (a.hasRoleAttributes) score += 2;
+
+  // Role attributes (5 pts — already factored above via ARIA)
+  // Bonus for tabindex usage showing intentional focus management
+  if (a.tabindexCount > 0) score += 5;
+
   return Math.min(100, Math.max(0, score));
 }

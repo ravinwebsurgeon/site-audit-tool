@@ -1,6 +1,7 @@
 export type AuditStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type IssueSeverity = 'CRITICAL' | 'WARNING' | 'PASSED';
-export type AuditCategory = 'SEO' | 'PERFORMANCE' | 'SECURITY';
+export type AuditCategory = 'SEO' | 'PERFORMANCE' | 'SECURITY' | 'ACCESSIBILITY';
+export type ScheduleFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 export interface AuditReport {
   id: string;
@@ -144,12 +145,62 @@ export interface SecurityAuditData {
   corsAllowAll: boolean;
 }
 
+// ── Accessibility ─────────────────────────────────────────────────────────────
+export interface AccessibilityAuditData {
+  totalImages: number;
+  imagesWithoutAlt: number;
+  buttonsWithoutText: number;
+  totalButtons: number;
+  linksWithoutText: number;
+  totalLinks: number;
+  formInputsWithoutLabel: number;
+  totalFormInputs: number;
+  hasSkipLink: boolean;
+  hasAriaLabels: boolean;
+  ariaLabelCount: number;
+  hasRoleAttributes: boolean;
+  roleAttributeCount: number;
+  headingHierarchyValid: boolean;
+  headingLevelsFound: number[];
+  hasLangAttribute: boolean;
+  langAttribute: string | null;
+  tabindexCount: number;
+  hasFocusableElements: boolean;
+}
+
 // ── Combined audit input ───────────────────────────────────────────────────────
 export interface AuditData {
   url: string;
   seo: SeoAuditData;
   performance: PerformanceAuditData;
   security: SecurityAuditData;
+  accessibility: AccessibilityAuditData;
+}
+
+// ── Schedule ──────────────────────────────────────────────────────────────────
+export interface Schedule {
+  id: string;
+  userId: string;
+  url: string;
+  frequency: ScheduleFrequency;
+  isActive: boolean;
+  nextRunAt: Date;
+  lastRunAt: Date | null;
+  lastReportId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ── API Key ───────────────────────────────────────────────────────────────────
+export interface ApiKey {
+  id: string;
+  userId: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: Date | null;
+  expiresAt: Date | null;
+  isActive: boolean;
+  createdAt: Date;
 }
 
 // ── AI output ─────────────────────────────────────────────────────────────────
