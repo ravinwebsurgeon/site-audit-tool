@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ReportSummary {
   id: string;
@@ -64,7 +65,7 @@ export default function SendReportMailModal({
   const scoreLabel = isGood ? 'Excellent' : isMed ? 'Needs Work' : 'Poor';
   const displayUrl = report.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-99 overflow-y-auto">
       {/* Backdrop */}
       <div
@@ -294,5 +295,5 @@ export default function SendReportMailModal({
       </div>
       </div>
     </div>
-  );
+  , document.body);
 }

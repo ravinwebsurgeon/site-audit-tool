@@ -74,7 +74,7 @@ function ErrorContent() {
 
 export default function AuthErrorPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[calc(100vh-64px)] items-center justify-center"><div className="h-16 w-16 animate-pulse rounded-2xl bg-slate-100" /></div>}>
+    <Suspense fallback={<div className="flex min-h-[calc(100vh-64px)] items-center justify-center"><div className="h-16 w-16 animate-pulse rounded-2xl bg-slate-300" /></div>}>
       <ErrorContent />
     </Suspense>
   );

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|::1|localhost)/i;
 
@@ -53,6 +54,7 @@ function validateUrl(raw: string): { normalized: string; error: string | null } 
 
 export default function AuditForm() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +72,11 @@ export default function AuditForm() {
     const { normalized, error: validationError } = validateUrl(url);
     if (validationError) {
       setError(validationError);
+      return;
+    }
+
+    if (!session) {
+      router.push(`/auth/signin?message=${encodeURIComponent('Sign in to unlock full access to your dashboard')}`);
       return;
     }
 
@@ -159,16 +166,15 @@ export default function AuditForm() {
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div
-        className="group flex items-center gap-2 rounded-2xl p-2 transition-all duration-200"
+        className="flex items-center gap-2 rounded-2xl p-2 transition-all duration-200"
         style={{
-          background: 'rgba(255,255,255,0.08)',
-          border: '1.5px solid 0b1120',
-          boxShadow: '0 0 0 0px rgba(99,102,241,0)',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1.5px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
         }}
-        onFocus={() => {}}
       >
         {/* Globe icon */}
-        <span className="pl-2 shrink-0" style={{ color: 'rgba(148,163,184,0.8)' }}>
+        <span className="pl-3 shrink-0" style={{ color: 'rgba(148,163,184,0.7)' }}>
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
@@ -182,15 +188,15 @@ export default function AuditForm() {
           onChange={(e) => { setUrl(e.target.value); setError(null); }}
           onBlur={() => setTouched(true)}
           placeholder="Enter website URL — e.g. example.com"
-          className="min-w-0 flex-1 bg-transparent py-3.5 pr-2 text-lg font-medium outline-none placeholder:font-normal"
-          style={{ color: 'white', caretColor: '#6366f1' }}
+          className="min-w-0 flex-1 bg-transparent py-3.5 pr-2 text-base sm:text-lg font-medium outline-none placeholder:font-normal placeholder:text-slate-500"
+          style={{ color: 'white', caretColor: '#818cf8' }}
         />
 
         <button
           type="submit"
           disabled={loading || !url.trim() || !!inlineError}
-          className="shrink-0 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', minWidth: 140 }}
+          className="shrink-0 inline-flex items-center gap-2 rounded-xl px-5 sm:px-7 py-3.5 text-sm sm:text-base font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', minWidth: 120 }}
         >
           {loading ? (
             <>
@@ -198,12 +204,12 @@ export default function AuditForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
-              Analyzing…
+              <span className="hidden sm:inline">Analyzing…</span>
             </>
           ) : (
             <>
-              Run Audit
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span>Run Audit</span>
+              <svg className="h-4 w-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5-5 5M6 12h12" />
               </svg>
             </>
@@ -212,8 +218,10 @@ export default function AuditForm() {
       </div>
 
       {displayError && (
-        <div className="mt-4 flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm"
-          style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: '#fca5a5' }}>
+        <div
+          className="mt-3.5 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm"
+          style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.25)', color: '#fca5a5' }}
+        >
           <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

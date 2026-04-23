@@ -8,7 +8,7 @@ import { redisConnection as redis } from '@/lib/redis';
 export type Tier = 'FREE' | 'PRO' | 'ENTERPRISE';
 
 const TIER_LIMITS: Record<Tier, number> = {
-  FREE: 500, //500 for now , change to 5 after implementing stripe functionality
+  FREE: 5, 
   PRO: 100,
   ENTERPRISE: Infinity,
 };

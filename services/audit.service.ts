@@ -27,7 +27,7 @@ export async function createAudit(url: string, userId?: string, forceNew = false
   const urlHash = hashUrl(normalized);
 
   if (!forceNew) {
-    const cached = await findRecentAudit(urlHash, AUDIT_CACHE_TTL_HOURS);
+    const cached = await findRecentAudit(urlHash, AUDIT_CACHE_TTL_HOURS, userId);
     if (cached) {
       return { report: cached, fromCache: true };
     }

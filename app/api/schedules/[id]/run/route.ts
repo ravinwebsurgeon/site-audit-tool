@@ -8,14 +8,15 @@ import type { ScheduleFrequency } from '@/types';
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  const schedule = await getScheduleById(params.id, session.user.id);
+  const schedule = await getScheduleById(id, session.user.id);
   if (!schedule) {
     return NextResponse.json({ success: false, message: 'Schedule not found' }, { status: 404 });
   }
@@ -29,7 +30,7 @@ export async function POST(
     const updated = await markScheduleRan(schedule.id, report.id, schedule.frequency as ScheduleFrequency);
     return NextResponse.json({ success: true, data: { reportId: report.id, schedule: updated } });
   } catch (err) {
-    console.error(`[schedules/run] Failed to run schedule ${params.id}:`, err);
+    console.error(`[schedules/run] Failed to run schedule ${id}:`, err);
     return NextResponse.json({ success: false, message: 'Failed to run schedule' }, { status: 500 });
   }
 }

@@ -197,7 +197,7 @@ export default function SchedulesPage() {
       {/* Notify on complete toggle */}
       <div className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div>
-          <p className="text-sm font-semibold text-slate-800">OnComplete Email notifications</p>
+          <p className="text-md font-semibold text-slate-800">OnComplete Email notifications</p>
           <p className="text-xs text-slate-400 mt-0.5">Get an email when a scheduled audit completes</p>
         </div>
         <button
@@ -219,7 +219,7 @@ export default function SchedulesPage() {
 
       {/* Create form */}
       <form onSubmit={handleCreate} className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-700 mb-4">New Schedule</h2>
+        <h2 className="text-md font-semibold text-slate-700 mb-4">New Schedule</h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
@@ -276,7 +276,7 @@ export default function SchedulesPage() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className="font-semibold text-slate-900 text-sm truncate">{displayUrl}</p>
+                    <p className="font-semibold text-slate-900 text-md truncate">{displayUrl}</p>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${FREQ_COLORS[s.frequency]}`}>
                       {FREQ_LABELS[s.frequency]}
                     </span>

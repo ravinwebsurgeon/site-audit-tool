@@ -99,7 +99,7 @@ model AuditReport {
   updatedAt    DateTime    @updatedAt
   completedAt  DateTime?
 
-  user     User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user     User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   sections AuditSection[]
   issues   AuditIssue[]
 
