@@ -2,9 +2,11 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import ScoreCard from "@/components/ScoreCard";
 import IssueList from "@/components/IssueList";
 import ConfirmModal from "@/components/ConfirmModal";
+import SendReportMailModal from "@/components/SendReportMailModal";
 import { AuditReportSkeleton } from "@/components/Skeleton";
 import { useToast } from "@/components/Toast";
 
@@ -406,12 +408,35 @@ export default function AuditPage({
 }) {
   const { id } = use(params);
   const toast = useToast();
+  const { data: session } = useSession();
   const [report, setReport] = useState<AuditReport | null>(null);
   const [status, setStatus] = useState<string>("PENDING");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [mailModalOpen, setMailModalOpen] = useState(false);
+  const [mailSending, setMailSending] = useState(false);
+  const [mailSent, setMailSent] = useState(false);
+
+  async function handleSendEmail() {
+    setMailSending(true);
+    try {
+      const res = await fetch(`/api/audits/${id}/send-email`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        setMailSent(true);
+        setMailModalOpen(false);
+        toast.success("Report sent to your email!");
+      } else {
+        toast.error(json.message ?? "Failed to send email.");
+      }
+    } catch {
+      toast.error("Failed to send email. Please try again.");
+    } finally {
+      setMailSending(false);
+    }
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -767,6 +792,29 @@ export default function AuditPage({
             Dashboard
           </Link>
           <button
+            onClick={() => setMailModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border bg-white px-6 py-3 text-base font-semibold shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+            style={{
+              borderColor: "#e2e8f0",
+              color: mailSent ? "#8b5cf6" : "#6366f1",
+            }}
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            {mailSent ? "Resend Report" : "Send Report to Email"}
+          </button>
+          <button
             onClick={() => setDeleteModalOpen(true)}
             disabled={deleting}
             className="inline-flex items-center gap-2 rounded-xl border bg-white px-6 py-3 text-base font-semibold text-red-500 shadow-sm transition-all hover:shadow-md hover:border-red-200 disabled:opacity-50"
@@ -797,6 +845,23 @@ export default function AuditPage({
         loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteModalOpen(false)}
+      />
+
+      <SendReportMailModal
+        open={mailModalOpen}
+        sent={mailSent}
+        report={{
+          id: report.id,
+          url: report.url,
+          overallScore: report.overallScore,
+          criticalCount,
+          warningCount,
+          passedCount,
+        }}
+        userEmail={session?.user?.email}
+        sending={mailSending}
+        onSend={handleSendEmail}
+        onSkip={() => setMailModalOpen(false)}
       />
     </div>
   );

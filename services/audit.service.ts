@@ -13,8 +13,6 @@ import { auditPerformance } from './performance.service';
 import { auditSecurity } from './security.service';
 import { auditAccessibility } from './accessibility.service';
 import { analyzeWithAi } from './ai.service';
-import { sendAuditCompleteEmail } from '@/lib/mail';
-import { prisma } from '@/lib/prisma';
 import type {
   AuditCategory,
   AuditData,
@@ -90,39 +88,11 @@ export async function processAudit(reportId: string, url: string): Promise<void>
       completedAt: new Date(),
     });
 
-    // Fire-and-forget: notify user if they have notifications enabled
-    notifyUserIfEnabled(reportId, finalScore).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error during audit';
     await updateAuditStatus(reportId, 'FAILED', { errorMessage: message });
     throw error;
   }
-}
-
-async function notifyUserIfEnabled(reportId: string, score: number): Promise<void> {
-  const report = await prisma.auditReport.findUnique({
-    where: { id: reportId },
-    include: {
-      user: { select: { email: true, notifyOnComplete: true } },
-      issues: { select: { severity: true } },
-    },
-  });
-  if (!report?.user?.notifyOnComplete || !report.user.email) return;
-
-  const criticalCount = report.issues.filter((i: { severity: string }) => i.severity === 'CRITICAL').length;
-  const warningCount = report.issues.filter((i: { severity: string }) => i.severity === 'WARNING').length;
-  const passedCount = report.issues.filter((i: { severity: string }) => i.severity === 'PASSED').length;
-
-  await sendAuditCompleteEmail({
-    to: report.user.email,
-    reportId,
-    auditUrl: report.url,
-    overallScore: score,
-    criticalCount,
-    warningCount,
-    passedCount,
-    appUrl: process.env.NEXTAUTH_URL ?? 'https://siteaudit.app',
-  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
