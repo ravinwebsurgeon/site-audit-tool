@@ -28,16 +28,38 @@ function timeUntil(iso: string) {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms < 0) return 'due now';
   const h = Math.floor(ms / 3600000);
-  if (h < 24) return `in ${h}h`;
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h === 0) return `in ${m}m`;
+  if (h < 24) return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
   return `in ${Math.floor(h / 24)}d`;
 }
 
+// function timeAgo(iso: string) {
+//   const ms = Date.now() - new Date(iso).getTime();
+//   const h = Math.floor(ms / 3600000);
+//   if (h < 1) return 'just nows';
+//   if (h < 24) return `${h}h ago`;
+//   return `${Math.floor(h / 24)}d ago`;
+// }
+
 function timeAgo(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
-  const h = Math.floor(ms / 3600000);
-  if (h < 1) return 'just now';
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / 86400000);
+
+  if (minutes < 1) return 'just now';
+
+  if (minutes < 60) {
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
 export default function SchedulesPage() {
@@ -51,6 +73,7 @@ export default function SchedulesPage() {
   const [notifyLoading, setNotifyLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [runningNow, setRunningNow] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionStatus !== 'authenticated') return;
@@ -117,6 +140,21 @@ export default function SchedulesPage() {
     }
   }
 
+  async function handleRunNow(id: string) {
+    setRunningNow(id);
+    try {
+      const res = await fetch(`/api/schedules/${id}/run`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setSchedules((prev) =>
+          prev.map((s) => s.id === id ? { ...s, ...data.data.schedule } : s)
+        );
+      }
+    } finally {
+      setRunningNow(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     setDeleting(true);
     const res = await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
@@ -159,7 +197,7 @@ export default function SchedulesPage() {
       {/* Notify on complete toggle */}
       <div className="mb-6 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div>
-          <p className="text-sm font-semibold text-slate-800">Email notifications</p>
+          <p className="text-sm font-semibold text-slate-800">OnComplete Email notifications</p>
           <p className="text-xs text-slate-400 mt-0.5">Get an email when a scheduled audit completes</p>
         </div>
         <button
@@ -258,6 +296,15 @@ export default function SchedulesPage() {
                     >
                       Last report
                     </Link>
+                  )}
+                  {s.isActive && new Date(s.nextRunAt) <= new Date() && (
+                    <button
+                      onClick={() => handleRunNow(s.id)}
+                      disabled={runningNow === s.id}
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                    >
+                      {runningNow === s.id ? 'Running…' : 'Run Now'}
+                    </button>
                   )}
                   <button
                     onClick={() => toggleActive(s.id, s.isActive)}

@@ -36,6 +36,7 @@ export interface AuditJobData {
   reportId: string;
   url: string;
   userId?: string;
+  isScheduled?: boolean;
 }
 
 // ── SEO ───────────────────────────────────────────────────────────────────────

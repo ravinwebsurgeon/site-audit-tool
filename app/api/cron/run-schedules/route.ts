@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDueSchedules, markScheduleRan } from '@/db/schedule';
-import { createAudit, processAudit } from '@/services/audit.service';
-import type { ScheduleFrequency } from '@/types';
+import { runDueSchedules } from '@/queue/scheduler';
 
-type DueSchedule = Awaited<ReturnType<typeof getDueSchedules>>[number];
-
-// Called by Vercel Cron every 15 minutes
-export async function POST(req: NextRequest) {
-  // Verify cron secret to prevent unauthorized calls
+// Called by Vercel Cron every 15 minutes via GET request
+export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = req.headers.get('authorization');
@@ -16,27 +11,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const due = await getDueSchedules();
-  if (due.length === 0) {
-    return NextResponse.json({ ran: 0 });
+  try {
+    const queued = await runDueSchedules();
+    return NextResponse.json({ queued });
+  } catch (err) {
+    console.error('[cron] run-schedules error:', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
-
-  const results: { id: string; url: string; status: 'queued' | 'error' }[] = [];
-
-  await Promise.allSettled(
-    due.map(async (schedule: DueSchedule) => {
-      try {
-        const { report } = await createAudit(schedule.url, schedule.userId, true);
-        // Process inline (cron has longer timeout than API routes)
-        processAudit(report.id, schedule.url).catch(console.error);
-        await markScheduleRan(schedule.id, report.id, schedule.frequency as ScheduleFrequency);
-        results.push({ id: schedule.id, url: schedule.url, status: 'queued' });
-      } catch (err) {
-        console.error(`[cron] Failed to run schedule ${schedule.id}:`, err);
-        results.push({ id: schedule.id, url: schedule.url, status: 'error' });
-      }
-    })
-  );
-
-  return NextResponse.json({ ran: results.length, results });
 }
