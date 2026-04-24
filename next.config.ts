@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ['bullmq', 'ioredis', 'nodemailer', '@aws-sdk/client-s3'],
 };
 
 export default nextConfig;
