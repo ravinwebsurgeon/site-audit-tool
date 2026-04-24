@@ -7,6 +7,12 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { ApiKeyCardSkeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 
+interface PlaygroundResult {
+  status: number;
+  body: unknown;
+  ms: number;
+}
+
 interface ApiKey {
   id: string;
   name: string;
@@ -35,9 +41,30 @@ export default function ApiKeysPage() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
+  const [playgroundKey, setPlaygroundKey] = useState('');
+  const [playgroundResult, setPlaygroundResult] = useState<PlaygroundResult | null>(null);
+  const [playgroundLoading, setPlaygroundLoading] = useState(false);
 
   const tier = session?.user?.subscriptionTier ?? 'FREE';
   const canCreate = tier !== 'FREE';
+
+  async function runPlayground() {
+    if (!playgroundKey.trim()) return;
+    setPlaygroundLoading(true);
+    setPlaygroundResult(null);
+    const t0 = Date.now();
+    try {
+      const res = await fetch('/api/v1/audits', {
+        headers: { Authorization: `Bearer ${playgroundKey.trim()}` },
+      });
+      const body = await res.json();
+      setPlaygroundResult({ status: res.status, body, ms: Date.now() - t0 });
+    } catch {
+      setPlaygroundResult({ status: 0, body: { error: 'Network error' }, ms: Date.now() - t0 });
+    } finally {
+      setPlaygroundLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (sessionStatus !== 'authenticated') return;
@@ -59,6 +86,7 @@ export default function ApiKeysPage() {
       const data = await res.json();
       if (data.success) {
         setNewKey(data.data.rawKey);
+        setPlaygroundKey(data.data.rawKey);
         setKeys((prev) => [data.data, ...prev]);
         setName('');
         toast.success('API key created successfully');
@@ -174,12 +202,82 @@ export default function ApiKeysPage() {
         </form>
       )}
 
-      {/* API usage example */}
-      <div className="mb-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
-        <p className="text-xs font-semibold text-slate-500 mb-2">Usage example</p>
-        <code className="text-xs text-slate-700 font-mono leading-relaxed whitespace-pre-wrap">
-          {`curl https://your-domain.com/api/v1/audits \\\n  -H "Authorization: Bearer sk_..."`}
-        </code>
+      {/* API Playground */}
+      <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+          <h2 className="text-sm font-semibold text-slate-700">API Playground</h2>
+          <span className="text-xs text-slate-400">— test your key live</span>
+        </div>
+
+        {/* Endpoint pill */}
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+          <span className="rounded bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-600">GET</span>
+          <code className="text-xs font-mono text-slate-600">/api/v1/audits</code>
+        </div>
+
+        {/* Key input */}
+        <div className="mb-4">
+          <label className="mb-1.5 block text-xs text-slate-500">API Key</label>
+          <div className="flex gap-2">
+            <input
+              value={playgroundKey}
+              onChange={(e) => setPlaygroundKey(e.target.value)}
+              placeholder="Paste your sk_... key here"
+              className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-xs text-slate-900 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            <button
+              onClick={runPlayground}
+              disabled={playgroundLoading || !playgroundKey.trim()}
+              className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            >
+              {playgroundLoading ? 'Running…' : 'Run'}
+            </button>
+          </div>
+        </div>
+
+        {/* Curl preview */}
+        {playgroundKey && (
+          <div className="mb-4 rounded-xl bg-slate-900 px-4 py-3">
+            <p className="mb-1 text-xs text-slate-500">curl</p>
+            <code className="whitespace-pre-wrap font-mono text-xs text-slate-300">
+              {`curl ${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/api/v1/audits \\\n  -H "Authorization: Bearer ${playgroundKey}"`}
+            </code>
+          </div>
+        )}
+
+        {/* Response */}
+        {playgroundResult && (
+          <div className="overflow-hidden rounded-xl border border-slate-100">
+            <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2.5">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                playgroundResult.status === 200 ? 'bg-emerald-100 text-emerald-700' :
+                playgroundResult.status === 401 ? 'bg-red-100 text-red-700' :
+                playgroundResult.status === 429 ? 'bg-amber-100 text-amber-700' :
+                'bg-slate-100 text-slate-600'
+              }`}>
+                {playgroundResult.status === 0 ? 'ERR' : playgroundResult.status}
+              </span>
+              <span className="text-xs text-slate-400">{playgroundResult.ms}ms</span>
+              <span className="text-xs text-slate-400">
+                {playgroundResult.status === 200 ? 'OK' :
+                 playgroundResult.status === 401 ? 'Unauthorized' :
+                 playgroundResult.status === 429 ? 'Rate Limited' : ''}
+              </span>
+            </div>
+            <div className="max-h-80 overflow-y-auto bg-slate-900 p-4">
+              <pre className="whitespace-pre-wrap font-mono text-xs text-slate-300">
+                {JSON.stringify(playgroundResult.body, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {!playgroundKey && !playgroundResult && (
+          <p className="text-xs text-slate-400">
+            Paste an API key above and click <span className="font-medium text-slate-500">Run</span> to see a live response from <code className="font-mono">/api/v1/audits</code>.
+          </p>
+        )}
       </div>
 
       {/* Key list */}

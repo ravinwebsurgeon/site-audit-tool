@@ -4,8 +4,7 @@ import './globals.css';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import Providers from '@/components/Providers';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import ConditionalShell from '@/components/ConditionalShell';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
@@ -23,9 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
         <Providers session={session}>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <ConditionalShell>{children}</ConditionalShell>
         </Providers>
       </body>
     </html>

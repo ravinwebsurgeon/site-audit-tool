@@ -17,11 +17,15 @@ export async function createAuditReport(data: {
   });
 }
 
-export async function findRecentAudit(urlHash: string, hoursAgo: number) {
+export async function findRecentAudit(urlHash: string, hoursAgo: number, userId?: string) {
+  // Cache is scoped per-user. Anonymous users (no userId) never hit the cache.
+  if (!userId) return null;
+
   const since = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
   return prisma.auditReport.findFirst({
     where: {
       urlHash,
+      userId,
       status: 'COMPLETED',
       createdAt: { gte: since },
     },
@@ -85,10 +89,11 @@ export async function updateAuditStatus(
   status: AuditStatus,
   extras?: { overallScore?: number; completedAt?: Date; errorMessage?: string }
 ) {
-  return prisma.auditReport.update({
+  const { count } = await prisma.auditReport.updateMany({
     where: { id },
     data: { status, ...extras },
   });
+  return count > 0;
 }
 
 export async function saveAuditSections(

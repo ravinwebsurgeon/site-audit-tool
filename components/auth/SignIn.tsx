@@ -24,17 +24,58 @@ function GitHubIcon() {
   );
 }
 
-const FEATURES = [
-  { icon: '🔍', title: 'Deep SEO Analysis', desc: '25+ checks including schema, canonical, OG tags' },
-  { icon: '⚡', title: 'Performance Audit', desc: 'Core metrics, lazy loading, compression checks' },
-  { icon: '🔒', title: 'Security Scanning', desc: 'Headers, HSTS, CSP, mixed content detection' },
-  { icon: '🤖', title: 'AI Recommendations', desc: 'Claude-powered, prioritized action plan' },
+const LEFT_FEATURES = [
+  {
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
+    color: '#3b82f6',
+    bg: 'rgba(59,130,246,0.15)',
+    title: 'Deep SEO Analysis',
+    desc: '25+ checks including schema, canonical, OG tags',
+  },
+  {
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.15)',
+    title: 'Performance Audit',
+    desc: 'Core metrics, lazy loading, compression checks',
+  },
+  {
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    color: '#10b981',
+    bg: 'rgba(16,185,129,0.15)',
+    title: 'Security Scanning',
+    desc: 'Headers, HSTS, CSP, mixed content detection',
+  },
+  {
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    ),
+    color: '#8b5cf6',
+    bg: 'rgba(139,92,246,0.15)',
+    title: 'AI Recommendations',
+    desc: 'Claude-powered, prioritized action plan',
+  },
 ];
 
 function SignInForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
   const errorParam = searchParams.get('error');
+  const messageParam = searchParams.get('message');
 
   const [availableProviders, setAvailableProviders] = useState<Record<string, { id: string; name: string }> | null>(null);
   const [email, setEmail] = useState('');
@@ -42,16 +83,14 @@ function SignInForm() {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
 
-  useEffect(() => {
-    getProviders().then(setAvailableProviders);
-  }, []);
+  useEffect(() => { getProviders().then(setAvailableProviders); }, []);
 
   const errorMessages: Record<string, string> = {
-    OAuthCallback: 'OAuth sign-in failed. Please try again.',
+    OAuthCallback:      'OAuth sign-in failed. Please try again.',
     OAuthCreateAccount: 'Could not create account. Email may already be linked to another provider.',
     EmailCreateAccount: 'Could not create account. Please try a different email.',
-    Callback: 'Something went wrong during sign-in.',
-    Default: 'Sign-in failed. Please try again.',
+    Callback:           'Something went wrong during sign-in.',
+    Default:            'Sign-in failed. Please try again.',
   };
   const errorMsg = errorParam ? (errorMessages[errorParam] ?? errorMessages.Default) : null;
 
@@ -71,14 +110,18 @@ function SignInForm() {
 
   const hasGoogle = availableProviders?.google;
   const hasGitHub = availableProviders?.github;
-  const hasEmail = availableProviders?.email;
+  const hasEmail  = availableProviders?.email;
 
   if (emailSent) {
     return (
       <div className="text-center">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50">
+        <div
+          className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
+          style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}
+        >
           <svg className="h-8 w-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
         <h3 className="text-xl font-bold text-slate-900 mb-2">Check your inbox</h3>
@@ -86,7 +129,7 @@ function SignInForm() {
         <p className="font-semibold text-slate-800 mb-6">{email}</p>
         <p className="text-xs text-slate-400">
           Didn&apos;t receive it?{' '}
-          <button onClick={() => setEmailSent(false)} className="text-blue-600 underline">Try again</button>
+          <button onClick={() => setEmailSent(false)} className="text-indigo-600 underline hover:text-indigo-700">Try again</button>
         </p>
       </div>
     );
@@ -94,13 +137,28 @@ function SignInForm() {
 
   return (
     <div>
-      <div className="mb-8">
+      <div className="mb-7">
         <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
-        <p className="mt-1 text-sm text-slate-500">Sign in to access your audit history</p>
+        <p className="mt-1 text-sm text-slate-500">Sign in to access your audit history and reports</p>
       </div>
 
+      {messageParam && (
+        <div
+          className="mb-5 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-indigo-700"
+          style={{ background: 'rgba(99,102,241,0.08)', borderColor: 'rgba(99,102,241,0.25)' }}
+        >
+          <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {messageParam}
+        </div>
+      )}
+
       {errorMsg && (
-        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          className="mb-5 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-red-700"
+          style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.2)' }}
+        >
           <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -109,12 +167,13 @@ function SignInForm() {
       )}
 
       {(hasGoogle || hasGitHub) && (
-        <div className="space-y-3 mb-6">
+        <div className="space-y-2.5 mb-6">
           {hasGoogle && (
             <button
               onClick={() => handleOAuth('google')}
               disabled={!!oauthLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ borderColor: '#e2e8f0', background: 'white' }}
             >
               {oauthLoading === 'google' ? (
                 <svg className="h-5 w-5 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
@@ -129,7 +188,8 @@ function SignInForm() {
             <button
               onClick={() => handleOAuth('github')}
               disabled={!!oauthLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ borderColor: '#e2e8f0', background: 'white' }}
             >
               {oauthLoading === 'github' ? (
                 <svg className="h-5 w-5 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
@@ -149,25 +209,27 @@ function SignInForm() {
             <div className="w-full border-t border-slate-100" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-4 text-xs text-slate-400">or continue with email</span>
+            <span className="bg-white px-4 text-xs font-medium text-slate-400">or continue with email</span>
           </div>
         </div>
       )}
 
       {hasEmail && (
-        <form onSubmit={handleEmail} className="space-y-3">
+        <form onSubmit={handleEmail} className="space-y-2.5">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
             required
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-2 transition-all"
+            style={{ '--tw-ring-color': 'rgba(99,102,241,0.15)' } as React.CSSProperties}
           />
           <button
             type="submit"
             disabled={emailLoading || !email.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
           >
             {emailLoading ? (
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -185,9 +247,13 @@ function SignInForm() {
       )}
 
       {!hasGoogle && !hasGitHub && !hasEmail && (
-        <p className="text-center text-sm text-slate-500 mt-4">
-          No auth providers configured. Add OAuth credentials to <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">.env</code>
-        </p>
+        <div
+          className="rounded-xl border p-4 text-center text-sm text-slate-500"
+          style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+        >
+          No auth providers configured. Add OAuth credentials to{' '}
+          <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">.env</code>
+        </div>
       )}
 
       <p className="mt-6 text-center text-xs text-slate-400">
@@ -202,15 +268,29 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-[calc(100vh-64px)]">
+    <div className="flex h-screen overflow-hidden">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-linear-to-br from-slate-900 via-blue-950 to-indigo-950 p-12 text-white relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between px-12 py-4 text-white relative overflow-y-auto shrink-0"
+        style={{ background: 'linear-gradient(145deg, #0b1120 0%, #0f172a 50%, #1a1040 100%)' }}
+      >
+        {/* Glows */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 50% at 30% 20%, rgba(99,102,241,0.25) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 40% 40% at 80% 80%, rgba(139,92,246,0.15) 0%, transparent 70%)' }}
+        />
+        <div className="absolute inset-0 pointer-events-none dot-grid-white opacity-15" />
 
-        <div>
-          <Link href="/" className="flex items-center gap-2.5 mb-16">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+        <div className="relative">
+          <Link href="/" className="flex items-center gap-2.5 mb-14">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+            >
               <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -218,46 +298,62 @@ export default function SignInPage() {
             <span className="font-bold text-lg text-white">SiteAudit</span>
           </Link>
 
-          <h1 className="text-4xl font-bold leading-tight mb-4">
-            Audit your website.<br />
-            <span className="text-blue-300">Outrank everyone.</span>
+          <h1 className="text-4xl font-extrabold leading-tight mb-4 tracking-tight">
+            Audit your website.{' '}
+            <span
+              style={{ background: 'linear-gradient(135deg, #818cf8, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+            >
+              Outrank everyone.
+            </span>
           </h1>
-          <p className="text-slate-300 text-base leading-relaxed max-w-sm mb-12">
-            AI-powered audits that pinpoint exactly what&apos;s holding your site back — and tell you how to fix it.
+          <p className="text-slate-400 text-base leading-relaxed max-w-sm mb-12">
+            AI-powered audits that pinpoint exactly what&apos;s holding your site back — and tell you how to fix it fast.
           </p>
 
-          <div className="space-y-5">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/8 text-xl">
+          <div className="space-y-4">
+            {LEFT_FEATURES.map((f) => (
+              <div key={f.title} className="flex items-center gap-4">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: f.bg, color: f.color }}
+                >
                   {f.icon}
                 </div>
                 <div>
                   <p className="font-semibold text-white text-sm">{f.title}</p>
-                  <p className="text-slate-400 text-sm">{f.desc}</p>
+                  <p className="text-slate-500 text-xs">{f.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Social proof */}
+        <div className="relative flex items-center gap-4">
           <div className="flex -space-x-2">
             {['#3b82f6', '#8b5cf6', '#ec4899', '#10b981'].map((c, i) => (
-              <div key={i} className="h-8 w-8 rounded-full border-2 border-slate-800" style={{ background: c }} />
+              <div
+                key={i}
+                className="h-8 w-8 rounded-full"
+                style={{ background: c, outline: '2px solid #0f172a' }}
+              />
             ))}
           </div>
           <p className="text-sm text-slate-400">
-            Join <span className="text-white font-semibold">1,200+</span> developers &amp; agencies
+            Trusted by <span className="text-white font-semibold">1,200+</span> developers &amp; agencies
           </p>
         </div>
       </div>
 
       {/* Right panel */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center px-6 py-12">
+      <div className="flex w-full lg:w-1/2 items-center justify-center px-6 py-8 overflow-y-auto">
         <div className="w-full max-w-sm">
-          <Link href="/" className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-indigo-600">
+          {/* Mobile logo */}
+          <Link href="/" className="flex items-center gap-2.5 mb-10 lg:hidden">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-xl"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+            >
               <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -265,7 +361,7 @@ export default function SignInPage() {
             <span className="font-bold text-slate-900">SiteAudit</span>
           </Link>
 
-          <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-slate-100" />}>
+          <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-slate-300" />}>
             <SignInForm />
           </Suspense>
         </div>

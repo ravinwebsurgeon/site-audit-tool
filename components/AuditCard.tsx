@@ -15,30 +15,57 @@ interface AuditCardProps {
 }
 
 function ScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-slate-400 text-sm">—</span>;
-  const color =
-    score >= 80
-      ? 'bg-green-100 text-green-700'
-      : score >= 50
-      ? 'bg-amber-100 text-amber-700'
-      : 'bg-red-100 text-red-700';
+  if (score === null) {
+    return (
+      <div
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+        style={{ background: 'rgba(148,163,184,0.1)', color: '#94a3b8' }}
+      >
+        —
+      </div>
+    );
+  }
+  const isGood = score >= 80;
+  const isMed = score >= 50;
+  const [bg, color, glow] = isGood
+    ? ['rgba(16,185,129,0.12)', '#10b981', 'rgba(16,185,129,0.2)']
+    : isMed
+    ? ['rgba(245,158,11,0.12)', '#f59e0b', 'rgba(245,158,11,0.2)']
+    : ['rgba(239,68,68,0.12)', '#ef4444', 'rgba(239,68,68,0.2)'];
+
   return (
-    <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${color}`}>
+    <div
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-extrabold tabular-nums"
+      style={{
+        background: bg,
+        color,
+        boxShadow: `0 0 0 1px ${glow}`,
+      }}
+    >
       {score}
-    </span>
+    </div>
   );
 }
 
+const STATUS_CONFIG: Record<string, { bg: string; color: string; dot: string; label: string }> = {
+  COMPLETED: { bg: 'rgba(16,185,129,0.1)', color: '#10b981', dot: '#10b981', label: 'Completed' },
+  PROCESSING: { bg: 'rgba(59,130,246,0.1)', color: '#3b82f6', dot: '#3b82f6', label: 'Processing' },
+  PENDING:    { bg: 'rgba(148,163,184,0.1)', color: '#64748b', dot: '#94a3b8', label: 'Pending' },
+  FAILED:     { bg: 'rgba(239,68,68,0.1)', color: '#ef4444', dot: '#ef4444', label: 'Failed' },
+};
+
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    COMPLETED: 'bg-green-100 text-green-700',
-    PROCESSING: 'bg-blue-100 text-blue-700',
-    PENDING: 'bg-slate-100 text-slate-600',
-    FAILED: 'bg-red-100 text-red-700',
-  };
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
   return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>
-      {status.charAt(0) + status.slice(1).toLowerCase()}
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+      style={{ background: cfg.bg, color: cfg.color }}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ background: cfg.dot }}
+      />
+      {cfg.label}
     </span>
   );
 }
@@ -58,7 +85,12 @@ export default function AuditCard({ id, url, overallScore, status, createdAt, co
   const [deleting, setDeleting] = useState(false);
 
   let displayUrl = url;
-  try { displayUrl = new URL(url).hostname; } catch { /* keep original */ }
+  let domain = url;
+  try {
+    const parsed = new URL(url);
+    displayUrl = parsed.hostname;
+    domain = parsed.hostname.replace(/^www\./, '');
+  } catch { /* keep original */ }
 
   async function confirmDelete() {
     setDeleting(true);
@@ -69,35 +101,57 @@ export default function AuditCard({ id, url, overallScore, status, createdAt, co
 
   return (
     <>
-      <div className="group relative flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 hover:border-blue-300 hover:shadow-md transition-all duration-200">
+      <div className="group relative flex items-center gap-4 rounded-xl border bg-white px-5 py-4 transition-all duration-200 hover:-translate-y-px hover:shadow-lg"
+        style={{ borderColor: '#e8edf5' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(99,102,241,0.25)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e8edf5'; }}
+      >
+        {/* Clickable overlay */}
         <Link href={`/audit/${id}`} className="absolute inset-0 rounded-xl" aria-label={`View audit for ${displayUrl}`} />
 
+        {/* Score badge */}
         <ScoreBadge score={overallScore} />
 
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-semibold text-slate-900 truncate text-sm">{displayUrl}</p>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <p className="font-semibold text-slate-800 truncate text-lg">{displayUrl}</p>
             <StatusPill status={status} />
           </div>
-          <p className="text-xs text-slate-400 truncate">{url}</p>
+          <p className="text-xs text-slate-400 truncate font-mono">{url}</p>
         </div>
 
+        {/* Right side */}
         <div className="relative z-10 flex items-center gap-3 shrink-0">
-          <p className="text-xs text-slate-400">{timeAgo(completedAt ?? createdAt)}</p>
+          <p className="text-sm text-slate-400 hidden sm:block whitespace-nowrap">
+            {timeAgo(completedAt ?? createdAt)}
+          </p>
           {onDelete && (
             <button
               onClick={(e) => { e.preventDefault(); setModalOpen(true); }}
               className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
               title="Delete report"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           )}
-          <svg className="h-4 w-4 text-slate-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <div
+            className="flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-200"
+            style={{
+              background: 'rgba(99,102,241,0.0)',
+            }}
+          >
+            <svg
+              className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
         </div>
       </div>
 

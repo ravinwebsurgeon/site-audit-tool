@@ -3,6 +3,7 @@ import { AUDIT_CACHE_TTL_HOURS } from '@/lib/constants';
 import {
   createAuditReport,
   findRecentAudit,
+  getAuditById,
   updateAuditStatus,
   saveAuditSections,
   saveAuditIssues,
@@ -27,7 +28,7 @@ export async function createAudit(url: string, userId?: string, forceNew = false
   const urlHash = hashUrl(normalized);
 
   if (!forceNew) {
-    const cached = await findRecentAudit(urlHash, AUDIT_CACHE_TTL_HOURS);
+    const cached = await findRecentAudit(urlHash, AUDIT_CACHE_TTL_HOURS, userId);
     if (cached) {
       return { report: cached, fromCache: true };
     }
@@ -38,6 +39,12 @@ export async function createAudit(url: string, userId?: string, forceNew = false
 }
 
 export async function processAudit(reportId: string, url: string): Promise<void> {
+  const existing = await getAuditById(reportId);
+  if (!existing) {
+    console.warn(`[audit] processAudit: report ${reportId} not found — job skipped`);
+    return;
+  }
+
   await updateAuditStatus(reportId, 'PROCESSING');
 
   try {
