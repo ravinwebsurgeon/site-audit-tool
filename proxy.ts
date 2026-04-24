@@ -4,7 +4,16 @@ import type { NextRequest } from 'next/server';
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  // Match NextAuth's own secureCookie detection: based on NEXTAUTH_URL, not req.url.
+  // If NEXTAUTH_URL=https://..., NextAuth sets __Secure-next-auth.session-token.
+  // If NEXTAUTH_URL=http://..., it sets next-auth.session-token.
+  // getToken must use the same logic or it looks for the wrong cookie name.
+  const secureCookie =
+    process.env.NEXTAUTH_URL?.startsWith('https://') ??
+    process.env.NODE_ENV === 'production';
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie });
 
   // Redirect authenticated users away from auth pages
   if (token && pathname.startsWith('/auth/')) {
