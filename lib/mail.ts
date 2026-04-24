@@ -149,7 +149,9 @@ export async function sendAuditCompleteEmail(params: SendAuditCompleteParams): P
   const html = auditCompleteHtml(params);
 
   if (process.env.RESEND_API_KEY) {
-    try { await sendViaResend(to, subject, html); return; } catch {}
+    try { await sendViaResend(to, subject, html); return; } catch (err) {
+      console.warn('[mail] Resend failed for audit email — trying SMTP fallback:', err instanceof Error ? err.message : err);
+    }
   }
   if (process.env.EMAIL_SERVER) {
     await sendViaSMTP(to, subject, html);
@@ -171,12 +173,11 @@ export async function sendMagicLink({ to, url, siteName = 'SiteAudit' }: SendMag
       await sendViaResend(to, subject, html);
       return;
     } catch (err) {
-      // In dev, fall back to console when Resend rejects the send.
-      // Common cause: onboarding@resend.dev can only send to your Resend
-      // account email. Fix: verify your domain at resend.com/domains and
-      // set EMAIL_FROM=YourApp <you@yourdomain.com> in .env
-      if (process.env.NODE_ENV === 'production') throw err;
-      console.warn('\n[mail] Resend failed — falling back to console (dev only)');
+      // Resend failed (common cause in production: onboarding@resend.dev can
+      // only send to your Resend account email — verify a domain at
+      // resend.com/domains and set EMAIL_FROM to an address on that domain).
+      // Fall through to SMTP so magic links still work.
+      console.warn('[mail] Resend failed — trying SMTP fallback');
       console.warn('[mail] Error:', err instanceof Error ? err.message : err);
     }
   }
