@@ -1,8 +1,8 @@
 'use client';
 
-import { signIn, getProviders } from 'next-auth/react';
+import { signIn, getProviders, useSession } from 'next-auth/react';
 import { useEffect, useState, FormEvent, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 function GoogleIcon() {
@@ -267,6 +267,15 @@ function SignInForm() {
 }
 
 export default function SignInPage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/dashboard');
+    }
+  }, [status, router]);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Left panel */}
