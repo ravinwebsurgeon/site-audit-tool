@@ -1,20 +1,23 @@
+'use client';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
-const LINKS = {
-  Product: [
-    // { label: 'New Audit', href: '/' },
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Schedules', href: '/schedules' },
-    { label: 'Compare Reports', href: '/compare' },
-  ],
-  Account: [
-    // { label: 'Sign In', href: '/auth/signin' },
-    { label: 'Profile', href: '/profile' },
-    // { label: 'API Keys', href: '/settings/api-keys' },
-  ],
-};
+const PRODUCT_LINKS = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Schedules', href: '/schedules' },
+  { label: 'Compare Reports', href: '/compare' },
+];
 
 export default function Footer() {
+  const { data: session } = useSession();
+  const accountLink = session
+    ? { label: 'Profile', href: '/profile' }
+    : { label: 'Sign In', href: '/auth/signin' };
+
+  const LINKS = {
+    Product: PRODUCT_LINKS,
+    Account: [accountLink],
+  };
   return (
     <footer style={{ background: '#0b1120', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">

@@ -28,7 +28,7 @@ const worker = createAuditWorker();
 // When running outside Vercel (dev, Docker, Railway, etc.) this loop fills the
 // same role: it checks for due schedules every 15 minutes and queues them.
 
-const SCHEDULE_INTERVAL_MS = 15 * 60 * 1000;
+const SCHEDULE_INTERVAL_MS = 1 * 60 * 1000;
 
 async function tickScheduler() {
   console.log('[scheduler] Checking for due schedules…');

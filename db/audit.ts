@@ -89,10 +89,11 @@ export async function updateAuditStatus(
   status: AuditStatus,
   extras?: { overallScore?: number; completedAt?: Date; errorMessage?: string }
 ) {
-  return prisma.auditReport.update({
+  const { count } = await prisma.auditReport.updateMany({
     where: { id },
     data: { status, ...extras },
   });
+  return count > 0;
 }
 
 export async function saveAuditSections(
