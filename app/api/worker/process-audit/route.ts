@@ -60,10 +60,12 @@ export async function POST(req: NextRequest) {
   try {
     let data: AuditJobData;
 
-    if (
-      process.env.QSTASH_CURRENT_SIGNING_KEY &&
-      process.env.QSTASH_NEXT_SIGNING_KEY
-    ) {
+    const isProd = process.env.NODE_ENV === "production";
+    const hasSigningKeys =
+      !!process.env.QSTASH_CURRENT_SIGNING_KEY &&
+      !!process.env.QSTASH_NEXT_SIGNING_KEY;
+
+    if (isProd && hasSigningKeys) {
       // Production: verify QStash signature before processing
       const receiver = new Receiver({
         currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
@@ -84,7 +86,8 @@ export async function POST(req: NextRequest) {
 
       data = JSON.parse(rawBody) as AuditJobData;
     } else {
-      // Development: no signature check needed
+      // Development (local QStash emulator): no signature verification needed.
+      // The local server at QSTASH_URL=http://localhost:8080 doesn't sign requests.
       data = (await req.json()) as AuditJobData;
     }
 

@@ -87,7 +87,7 @@ export default function ProcessingLoader({ url, status }: { url?: string; status
             </div>
           ))}
         </div>
-        <p className="mt-8 text-center text-sm text-slate-400">Usually completes in 10–20 seconds</p>
+        <p className="mt-8 text-center text-sm text-slate-400">Usually completes in 10-20 seconds</p>
       </div>
     </div>
   );

@@ -15,10 +15,11 @@ export const auditQueue = new Queue<AuditJobData>(AUDIT_QUEUE_NAME, {
 });
 
 export async function addAuditJob(data: AuditJobData): Promise<void> {
-  if (process.env.VERCEL) {
-    // Production (Vercel): publish via QStash — serverless functions can't run
-    // background work after the response is sent. QStash delivers to
-    // /api/worker/process-audit and handles retries automatically.
+  if (process.env.QSTASH_TOKEN) {
+    // QStash is configured — use it in both local dev and production.
+    // Local dev: set QSTASH_URL=http://localhost:8080 and run `npm run qstash:dev`
+    // so the local emulator forwards jobs to /api/worker/process-audit.
+    // Production: QSTASH_URL points to the real QStash cloud endpoint.
     const { qstash, getWorkerUrl } = await import('@/lib/qstash');
     await qstash.publishJSON({
       url: getWorkerUrl(),
@@ -29,9 +30,7 @@ export async function addAuditJob(data: AuditJobData): Promise<void> {
     return;
   }
 
-  // Local / self-hosted: enqueue into BullMQ (requires `npm run worker` running).
-  // QSTASH_TOKEN may be present in .env for reference but must NOT be used here —
-  // QStash rejects localhost/loopback destination URLs.
+  // Fallback: BullMQ (local dev without QStash — requires `npm run worker`).
   await auditQueue.add('process-audit', data, { jobId: data.reportId });
   console.log(`[queue] Enqueued BullMQ job for report ${data.reportId}`);
 }

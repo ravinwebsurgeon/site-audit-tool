@@ -1,7 +1,11 @@
 import { Client } from "@upstash/qstash";
 
+// baseUrl: in dev, set QSTASH_URL=http://localhost:8080 to route through the
+// local emulator (npm run qstash:dev). In production this is unset and the SDK
+// defaults to https://qstash.upstash.io (or reads QSTASH_URL from env).
 export const qstash = new Client({
   token: process.env.QSTASH_TOKEN!,
+  baseUrl: process.env.QSTASH_URL,
 });
 
 export function getWorkerUrl(): string {

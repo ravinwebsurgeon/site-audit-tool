@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node --max-http-header-size=32768 node_modules/next/dist/bin/next dev",
+    "dev": "concurrently --names \"next,qstash\" --prefix-colors \"cyan,yellow\" \"node --max-http-header-size=32768 node_modules/next/dist/bin/next dev\" \"tsx scripts/local-qstash-server.ts\"",
+    "dev:next": "node --max-http-header-size=32768 node_modules/next/dist/bin/next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "worker": "tsx queue/worker.ts",
     "worker:watch": "tsx --watch queue/worker.ts",
+    "qstash:dev": "tsx scripts/local-qstash-server.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio"
@@ -37,6 +39,7 @@
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "prisma": "^7.8.0",
