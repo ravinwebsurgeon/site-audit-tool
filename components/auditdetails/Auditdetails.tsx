@@ -452,47 +452,62 @@ export default function AuditPage({
   }
 
   useEffect(() => {
-    fetch(`/api/audits/${id}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success) {
-          setReport(json.data);
-          setStatus(json.data.status);
-        } else setError(json.message ?? "Audit not found");
-      })
-      .catch(() => setError("Failed to load audit"))
-      .finally(() => setInitialLoading(false));
-  }, [id]);
+    let stopped = false;
+    let isFirst = true;
 
-  useEffect(() => {
-    if (status === "COMPLETED" || status === "FAILED" || error) return;
-    const es = new EventSource(`/api/audits/${id}/status`);
-    es.onmessage = (e) => {
-      const data = JSON.parse(e.data) as { status?: string; error?: string };
-      if (data.error) {
-        setError(data.error);
-        es.close();
-        return;
-      }
-      if (data.status) {
-        setStatus(data.status);
-        if (data.status === "COMPLETED") {
-          es.close();
-          fetch(`/api/audits/${id}`)
-            .then((r) => r.json())
-            .then((json) => {
-              if (json.success) setReport(json.data);
-            });
+    const fetchReport = async () => {
+      if (stopped) return;
+      try {
+        const r = await fetch(`/api/audits/${id}`);
+        const json = await r.json();
+        if (stopped) return;
+
+        if (!json.success) {
+          setError(json.message ?? "Audit not found");
+          stopped = true;
+          clearInterval(timer);
+          return;
         }
-        if (data.status === "FAILED") {
-          es.close();
-          setError("Audit processing failed. Please try again.");
+
+        const data = json.data as AuditReport;
+        setStatus(data.status);
+
+        // Set report on first load (captures URL for ProcessingLoader)
+        // and again when fully complete (captures sections + issues).
+        if (isFirst || data.status === "COMPLETED") {
+          setReport(data);
+        }
+
+        if (data.status === "COMPLETED" || data.status === "FAILED") {
+          if (data.status === "FAILED") {
+            setError(data.errorMessage ?? "Audit processing failed. Please try again.");
+          }
+          stopped = true;
+          clearInterval(timer);
+        }
+      } catch {
+        if (isFirst) {
+          setError("Failed to load audit");
+          stopped = true;
+          clearInterval(timer);
+        }
+        // subsequent poll failures are silently retried
+      } finally {
+        if (isFirst) {
+          isFirst = false;
+          setInitialLoading(false);
         }
       }
     };
-    es.onerror = () => es.close();
-    return () => es.close();
-  }, [id, status, error]);
+
+    fetchReport();
+    const timer = setInterval(fetchReport, 5000);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [id]);
 
   if (initialLoading) return <AuditReportSkeleton />;
   if (error) return <ErrorState message={error} />;
