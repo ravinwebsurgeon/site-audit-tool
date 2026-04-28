@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
@@ -33,19 +33,16 @@ function validateUrl(raw: string): { normalized: string; error: string | null } 
     return { normalized, error: 'Private, local, or loopback addresses cannot be audited.' };
   }
 
-  // Must have at least one dot and a non-empty TLD
   const parts = hostname.split('.');
   if (parts.length < 2 || parts[parts.length - 1].length < 2) {
     return { normalized, error: 'Please enter a valid public domain (e.g. example.com).' };
   }
 
-  // Reject raw IP addresses
   const ipv4Re = /^\d{1,3}(\.\d{1,3}){3}$/;
   if (ipv4Re.test(hostname)) {
     return { normalized, error: 'IP addresses are not supported — please enter a domain name.' };
   }
 
-  // Disallow paths that are just query strings or fragments with no real domain intent
   if (hostname.length > 253) {
     return { normalized, error: 'Hostname is too long.' };
   }
@@ -53,7 +50,9 @@ function validateUrl(raw: string): { normalized: string; error: string | null } 
   return { normalized, error: null };
 }
 
-export default function AuditForm() {
+const EXAMPLE_URLS = ['example.com', 'myshop.io', 'yourblog.com', 'startup.co', 'myagency.dev'];
+
+export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const router = useRouter();
   const { data: session } = useSession();
   const toast = useToast();
@@ -62,6 +61,52 @@ export default function AuditForm() {
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [notFoundUrl, setNotFoundUrl] = useState<string | null>(null);
+  const [focused, setFocused] = useState(true);
+  const [typedPlaceholder, setTypedPlaceholder] = useState('Enter website URL');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 400);
+    return () => clearTimeout(timer);
+  }, [autoFocus]);
+
+  // Typewriter placeholder cycling through example URLs
+  useEffect(() => {
+    if (notFoundUrl) return;
+    const prefix = 'Enter website URL — e.g. ';
+    let urlIdx = 0;
+    let charIdx = 0;
+    let isDeleting = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    function tick() {
+      const word = EXAMPLE_URLS[urlIdx];
+      if (!isDeleting) {
+        charIdx++;
+        setTypedPlaceholder(prefix + word.slice(0, charIdx));
+        if (charIdx === word.length) {
+          isDeleting = true;
+          timeout = setTimeout(tick, 2000);
+          return;
+        }
+        timeout = setTimeout(tick, 85);
+      } else {
+        charIdx--;
+        setTypedPlaceholder(prefix + word.slice(0, charIdx));
+        if (charIdx === 0) {
+          isDeleting = false;
+          urlIdx = (urlIdx + 1) % EXAMPLE_URLS.length;
+          timeout = setTimeout(tick, 350);
+          return;
+        }
+        timeout = setTimeout(tick, 40);
+      }
+    }
+
+    timeout = setTimeout(tick, 900);
+    return () => clearTimeout(timeout);
+  }, [notFoundUrl]);
 
   const inlineError = touched && url.trim() ? validateUrl(url).error : null;
   const displayError = inlineError ?? error;
@@ -132,7 +177,6 @@ export default function AuditForm() {
           className="rounded-2xl border p-8 text-center"
           style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }}
         >
-          {/* Icon */}
           <div
             className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl"
             style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}
@@ -182,57 +226,85 @@ export default function AuditForm() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
+      {/* Gradient border wrapper — animates to vivid indigo/purple on focus */}
       <div
-        className="flex items-center gap-2 rounded-2xl p-2 transition-all duration-200"
+        className="relative rounded-2xl transition-all duration-300"
         style={{
-          background: 'rgba(255,255,255,0.07)',
-          border: '1.5px solid rgba(255,255,255,0.12)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)',
+          padding: '1.5px',
+          background: focused
+            ? 'linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa, #6366f1)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06), rgba(255,255,255,0.18))',
+          boxShadow: focused
+            ? '0 0 0 4px rgba(99,102,241,0.18), 0 0 55px rgba(99,102,241,0.28), 0 8px 32px rgba(0,0,0,0.35)'
+            : '0 8px 32px rgba(0,0,0,0.25)',
         }}
       >
-        {/* Globe icon */}
-        <span className="pl-3 shrink-0" style={{ color: 'rgba(148,163,184,0.7)' }}>
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-            />
-          </svg>
-        </span>
-
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => { setUrl(e.target.value); setError(null); }}
-          onBlur={() => setTouched(true)}
-          placeholder="Enter website URL — e.g. example.com"
-          className="min-w-0 flex-1 bg-transparent py-3.5 pr-2 text-base sm:text-lg font-medium outline-none placeholder:font-normal placeholder:text-slate-500"
-          style={{ color: 'white', caretColor: '#818cf8' }}
-        />
-
-        <button
-          type="submit"
-          disabled={loading || !url.trim() || !!inlineError}
-          className="shrink-0 inline-flex items-center gap-2 rounded-xl px-5 sm:px-7 py-3.5 text-sm sm:text-base font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', minWidth: 120 }}
+        <div
+          className="flex items-center gap-2 rounded-2xl p-2 transition-colors duration-300"
+          style={{
+            background: focused ? 'rgba(11,11,24,0.98)' : 'rgba(255,255,255,0.07)',
+            boxShadow: focused ? 'inset 0 1px 0 rgba(255,255,255,0.1)' : 'inset 0 1px 0 rgba(255,255,255,0.08)',
+          }}
         >
-          {loading ? (
-            <>
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-              <span className="hidden sm:inline">Analyzing…</span>
-            </>
-          ) : (
-            <>
-              <span>Run Audit</span>
-              <svg className="h-4 w-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5-5 5M6 12h12" />
-              </svg>
-            </>
-          )}
-        </button>
+          {/* Globe icon — shifts to indigo on focus */}
+          <span
+            className="pl-3 shrink-0 transition-all duration-300"
+            style={{ color: focused ? '#818cf8' : 'rgba(148,163,184,0.7)' }}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+              />
+            </svg>
+          </span>
+
+          <input
+            ref={inputRef}
+            type="text"
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); setError(null); }}
+            onBlur={() => { setTouched(true); setTimeout(() => inputRef.current?.focus(), 0); }}
+            onFocus={() => setFocused(true)}
+            placeholder={typedPlaceholder}
+            className="min-w-0 flex-1 bg-transparent py-3.5 pr-2 text-base sm:text-lg font-medium outline-none placeholder:font-normal placeholder:text-slate-500"
+            style={{ color: 'white', caretColor: '#818cf8' }}
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !url.trim() || !!inlineError}
+            className="shrink-0 inline-flex items-center gap-2 rounded-xl px-5 sm:px-7 py-3.5 text-sm sm:text-base font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', minWidth: 120 }}
+          >
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span className="hidden sm:inline">Analyzing…</span>
+              </>
+            ) : (
+              <>
+                <span>Run Audit</span>
+                <svg className="h-4 w-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5-5 5M6 12h12" />
+                </svg>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Hint tagline — visible only when idle and no error */}
+      {!displayError && !url && (
+        <p
+          className="mt-2.5 text-center text-xs transition-opacity duration-500"
+          style={{ color: 'rgba(148,163,184,0.42)' }}
+        >
+          Instant audit &nbsp;·&nbsp; SEO &nbsp;·&nbsp; Performance &nbsp;·&nbsp; Security &nbsp;·&nbsp; ~10 sec
+        </p>
+      )}
 
       {displayError && (
         <div
