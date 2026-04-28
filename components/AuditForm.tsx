@@ -95,6 +95,16 @@ export default function AuditForm() {
         return;
       }
 
+      if (res.status === 429) {
+        const resetHeader = res.headers.get('X-RateLimit-Reset');
+        const resetTime   = resetHeader ? new Date(parseInt(resetHeader, 10) * 1000) : null;
+        const resetMsg    = resetTime
+          ? ` Your limit resets at ${resetTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+          : '';
+        setError(`Daily audit limit reached.${resetMsg}`);
+        return;
+      }
+
       if (!res.ok || !json.success) {
         setError(json.errors?.[0]?.message ?? json.message ?? 'Failed to start audit');
         return;

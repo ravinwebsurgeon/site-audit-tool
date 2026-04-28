@@ -3,6 +3,7 @@ import type { AuditData, AiAnalysisResult } from '@/types';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 30_000, // 30 s — keeps the Claude call well within the 60 s worker budget
 });
 
 function repairTruncatedJson(raw: string): string {
@@ -91,7 +92,7 @@ Rules:
 export async function analyzeWithAi(data: AuditData): Promise<AiAnalysisResult> {
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
+    max_tokens: 2048, // 9 recommendations × ~100 tokens each ≈ 1100 tokens; 2048 is ample
     messages: [{ role: 'user', content: buildAuditPrompt(data) }],
   });
 

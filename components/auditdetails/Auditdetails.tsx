@@ -85,52 +85,98 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
   }
 
   useEffect(() => {
-    let stopped = false;
-    let isFirst = true;
+    let es: EventSource | null = null;
+    let closed = false;
+    let giveUpTimer: ReturnType<typeof setTimeout>;
 
-    const fetchReport = async () => {
-      if (stopped) return;
+    async function bootstrap() {
+      // Single initial fetch — gets the URL for ProcessingLoader and short-circuits
+      // if the audit is already COMPLETED/FAILED (no SSE needed).
       try {
         const r = await fetch(`/api/audits/${id}`);
         const json = await r.json();
-        if (stopped) return;
 
         if (!json.success) {
           setError(json.message ?? "Audit not found");
-          stopped = true;
-          clearInterval(timer);
+          setInitialLoading(false);
           return;
         }
 
         const data = json.data as AuditReport;
         setStatus(data.status);
+        setReport(data);
+        setInitialLoading(false);
 
-        if (isFirst || data.status === "COMPLETED") setReport(data);
-
-        if (data.status === "COMPLETED" || data.status === "FAILED") {
-          if (data.status === "FAILED") {
-            setError(data.errorMessage ?? "Audit processing failed. Please try again.");
-          }
-          stopped = true;
-          clearInterval(timer);
+        if (data.status === "COMPLETED") return;
+        if (data.status === "FAILED") {
+          setError(data.errorMessage ?? "Audit processing failed. Please try again.");
+          return;
         }
       } catch {
-        if (isFirst) {
-          setError("Failed to load audit");
-          stopped = true;
-          clearInterval(timer);
-        }
-      } finally {
-        if (isFirst) {
-          isFirst = false;
-          setInitialLoading(false);
-        }
+        setError("Failed to load audit");
+        setInitialLoading(false);
+        return;
       }
-    };
 
-    fetchReport();
-    const timer = setInterval(fetchReport, 5000);
-    return () => { stopped = true; clearInterval(timer); };
+      // Audit is still in progress — open a single SSE connection.
+      // The server pushes status updates; EventSource auto-reconnects if
+      // the stream closes (e.g. Vercel 60 s limit) using the retry: directive.
+      es = new EventSource(`/api/audits/${id}/status`);
+
+      es.onmessage = async (evt) => {
+        if (closed) return;
+
+        const payload = JSON.parse(evt.data) as {
+          status?: string;
+          error?: string;
+          errorMessage?: string | null;
+        };
+
+        if (payload.error) {
+          closed = true;
+          es?.close();
+          clearTimeout(giveUpTimer);
+          setError(payload.error);
+          return;
+        }
+
+        if (payload.status) setStatus(payload.status);
+
+        if (payload.status === "COMPLETED") {
+          closed = true;
+          es?.close();
+          clearTimeout(giveUpTimer);
+          // One final fetch to hydrate the full report (sections + issues)
+          try {
+            const r = await fetch(`/api/audits/${id}`);
+            const json = await r.json();
+            if (json.success) setReport(json.data as AuditReport);
+          } catch { /* report will render from last known state */ }
+        } else if (payload.status === "FAILED") {
+          closed = true;
+          es?.close();
+          clearTimeout(giveUpTimer);
+          setError(payload.errorMessage ?? "Audit processing failed. Please try again.");
+        }
+      };
+
+      // 3-minute absolute hard limit across all reconnects
+      giveUpTimer = setTimeout(() => {
+        if (!closed) {
+          closed = true;
+          es?.close();
+          setError("Audit is taking longer than expected. Please try again.");
+        }
+      }, 3 * 60 * 1000);
+    }
+
+    bootstrap();
+
+    return () => {
+      closed = true;
+      es?.close();
+      clearTimeout(giveUpTimer);
+    };
   }, [id]);
 
   if (initialLoading) return <AuditReportSkeleton />;
@@ -232,7 +278,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
       {/* Issues section */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10">
         <div className="rounded-3xl border bg-white shadow-sm" style={{ borderColor: "#e2e8f0" }}>
-          <div className="flex items-center justify-between border-b px-4 sm:px-8 py-4 sm:py-6"
+          <div className="sm:flex items-center justify-between border-b px-4 sm:px-8 py-4 sm:py-6"
             style={{ borderColor: "#f1f5f9" }}>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Findings &amp; Recommendations</h2>
@@ -240,7 +286,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
                 {report.issues.length} items · prioritized by severity · powered by Claude AI
               </p>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="sm:flex items-center gap-2 mt-5 sm:mt-0">
               <a
                 href={`/api/audits/${id}/export`}
                 target="_blank" rel="noopener noreferrer"

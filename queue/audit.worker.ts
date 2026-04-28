@@ -7,6 +7,10 @@ import { prisma } from '@/lib/prisma';
 import type { AuditJobData } from '@/types';
 
 export function createAuditWorker() {
+  if (!redisConnection) {
+    throw new Error('[worker] REDIS_URL is required to run the BullMQ worker.');
+  }
+
   const worker = new Worker<AuditJobData>(
     AUDIT_QUEUE_NAME,
     async (job) => {
@@ -27,7 +31,7 @@ export function createAuditWorker() {
       }
     },
     {
-      connection: redisConnection,
+      connection: redisConnection,  // narrowed to non-null by the guard above
       concurrency: 5,
     }
   );
