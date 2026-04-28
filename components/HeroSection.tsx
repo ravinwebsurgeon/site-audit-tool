@@ -32,7 +32,7 @@ export default function HeroSection() {
         style={{ background: 'linear-gradient(to bottom, transparent, rgba(11,17,32,0.6))' }}
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:pb-28 text-center">
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-14 sm:pb-28 text-center">
 
         {/* Badge */}
         <div
@@ -87,7 +87,7 @@ export default function HeroSection() {
 
         {/* Form */}
         <div className="animate-fade-up delay-200 mx-auto mt-10 max-w-2xl">
-          <AuditForm />
+          <AuditForm autoFocus />
         </div>
 
         {/* Stats */}
