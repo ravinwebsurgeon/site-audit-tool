@@ -18,6 +18,12 @@ export const auditQueue = redisConnection
 
 export async function addAuditJob(data: AuditJobData): Promise<void> {
   if (process.env.QSTASH_TOKEN) {
+    const mask = (v?: string) => v ? `${v.slice(0, 8)}… (${v.length} chars)` : 'NOT SET';
+    console.log('[qstash-env] QSTASH_URL            :', process.env.QSTASH_URL ?? 'NOT SET');
+    console.log('[qstash-env] QSTASH_TOKEN           :', mask(process.env.QSTASH_TOKEN));
+    console.log('[qstash-env] QSTASH_CURRENT_SIGNING_KEY:', mask(process.env.QSTASH_CURRENT_SIGNING_KEY));
+    console.log('[qstash-env] QSTASH_NEXT_SIGNING_KEY   :', mask(process.env.QSTASH_NEXT_SIGNING_KEY));
+
     const { qstash, getWorkerUrl } = await import('@/lib/qstash');
     await qstash.publishJSON({
       url: getWorkerUrl(),
