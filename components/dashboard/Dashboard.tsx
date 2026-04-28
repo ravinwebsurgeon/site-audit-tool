@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 import AuditCard from '@/components/AuditCard';
 import Pagination from '@/components/Pagination';
 import ScoreTrendChart from '@/components/ScoreTrendChart';
@@ -73,6 +74,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const toast = useToast();
   const isAuthenticated = sessionStatus === 'authenticated';
 
   useEffect(() => {
@@ -124,8 +126,9 @@ export default function DashboardPage() {
     if (json.success) {
       setAudits((prev) => prev.filter((a) => a.id !== id));
       setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
+      toast.success('Audit deleted successfully');
     } else {
-      alert(json.message ?? 'Failed to delete audit');
+      toast.error(json.message ?? 'Failed to delete audit');
     }
   }
 
