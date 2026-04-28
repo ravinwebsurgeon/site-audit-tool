@@ -26,7 +26,7 @@ export default function HeroSection() {
         className="absolute inset-0 pointer-events-none opacity-25 dot-grid-white"
       />
 
-      {/* Bottom fade */}
+      {/*   Bottom fade */}
       <div
         className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
         style={{ background: 'linear-gradient(to bottom, transparent, rgba(11,17,32,0.6))' }}
