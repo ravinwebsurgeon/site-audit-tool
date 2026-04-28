@@ -46,6 +46,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
   const [status, setStatus] = useState<string>("PENDING");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reauditing, setReauditing] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [mailModalOpen, setMailModalOpen] = useState(false);
@@ -88,10 +89,16 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
     let es: EventSource | null = null;
     let closed = false;
     let giveUpTimer: ReturnType<typeof setTimeout>;
+    let fallbackPoll: ReturnType<typeof setInterval>;
+
+    function teardown() {
+      closed = true;
+      es?.close();
+      clearTimeout(giveUpTimer);
+      clearInterval(fallbackPoll);
+    }
 
     async function bootstrap() {
-      // Single initial fetch — gets the URL for ProcessingLoader and short-circuits
-      // if the audit is already COMPLETED/FAILED (no SSE needed).
       try {
         const r = await fetch(`/api/audits/${id}`);
         const json = await r.json();
@@ -118,53 +125,68 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
         return;
       }
 
-      // Audit is still in progress — open a single SSE connection.
-      // The server pushes status updates; EventSource auto-reconnects if
-      // the stream closes (e.g. Vercel 60 s limit) using the retry: directive.
+      // Fallback polling every 4 s — catches COMPLETED if SSE misses it
+      fallbackPoll = setInterval(async () => {
+        if (closed) return;
+        try {
+          const r = await fetch(`/api/audits/${id}`);
+          const json = await r.json();
+          if (!json.success) return;
+          const data = json.data as AuditReport;
+          if (data.status === "COMPLETED" || data.status === "FAILED") {
+            teardown();
+            setReport(data);
+            setStatus(data.status);
+            if (data.status === "FAILED") {
+              setError(data.errorMessage ?? "Audit processing failed. Please try again.");
+            }
+          }
+        } catch { /* ignore transient errors */ }
+      }, 4000);
+
+      // Primary: SSE for low-latency updates
       es = new EventSource(`/api/audits/${id}/status`);
 
       es.onmessage = async (evt) => {
         if (closed) return;
 
-        const payload = JSON.parse(evt.data) as {
-          status?: string;
-          error?: string;
-          errorMessage?: string | null;
-        };
+        let payload: { status?: string; error?: string; errorMessage?: string | null };
+        try {
+          payload = JSON.parse(evt.data);
+        } catch {
+          return;
+        }
 
         if (payload.error) {
-          closed = true;
-          es?.close();
-          clearTimeout(giveUpTimer);
+          teardown();
           setError(payload.error);
           return;
         }
 
-        if (payload.status) setStatus(payload.status);
+        if (payload.status && payload.status !== "COMPLETED" && payload.status !== "FAILED") {
+          setStatus(payload.status);
+        }
 
         if (payload.status === "COMPLETED") {
-          closed = true;
-          es?.close();
-          clearTimeout(giveUpTimer);
-          // One final fetch to hydrate the full report (sections + issues)
+          teardown();
+          // Fetch full report then update both status + report in the same tick
+          // so React batches them into one render (no intermediate empty state).
           try {
             const r = await fetch(`/api/audits/${id}`);
             const json = await r.json();
             if (json.success) setReport(json.data as AuditReport);
-          } catch { /* report will render from last known state */ }
+          } catch { /* fall through — status update below still fires */ }
+          setStatus("COMPLETED");
         } else if (payload.status === "FAILED") {
-          closed = true;
-          es?.close();
-          clearTimeout(giveUpTimer);
+          teardown();
           setError(payload.errorMessage ?? "Audit processing failed. Please try again.");
         }
       };
 
-      // 3-minute absolute hard limit across all reconnects
+      // 3-minute hard limit across all reconnects
       giveUpTimer = setTimeout(() => {
         if (!closed) {
-          closed = true;
-          es?.close();
+          teardown();
           setError("Audit is taking longer than expected. Please try again.");
         }
       }, 3 * 60 * 1000);
@@ -173,9 +195,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
     bootstrap();
 
     return () => {
-      closed = true;
-      es?.close();
-      clearTimeout(giveUpTimer);
+      teardown();
     };
   }, [id]);
 
@@ -319,27 +339,40 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
             </svg>
             Audit another site
           </Link>
-          <Link
-            href={`/?url=${encodeURIComponent(report.url)}&refresh=1`}
-            onClick={(e) => {
-              e.preventDefault();
-              fetch("/api/audits?refresh=1", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: report.url }),
-              })
-                .then((r) => r.json())
-                .then((json) => { if (json.success) window.location.href = `/audit/${json.data.id}`; });
+          <button
+            disabled={reauditing}
+            onClick={async () => {
+              setReauditing(true);
+              try {
+                const r = await fetch("/api/audits?refresh=1", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ url: report.url }),
+                });
+                const json = await r.json();
+                if (json.success) {
+                  window.location.href = `/audit/${json.data.id}`;
+                } else if (json.code === 'MISSING_ENV_KEY') {
+                  toast.error('Service not configured: ' + (json.message ?? 'Queue service (QStash/Redis) is missing. Check your environment variables.'));
+                  setReauditing(false);
+                } else {
+                  toast.error(json.message ?? "Failed to start re-audit.");
+                  setReauditing(false);
+                }
+              } catch {
+                toast.error("Failed to start re-audit. Please try again.");
+                setReauditing(false);
+              }
             }}
-            className="inline-flex items-center gap-2 rounded-xl border bg-white px-6 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:shadow-md hover:border-indigo-200"
+            className="inline-flex items-center gap-2 rounded-xl border bg-white px-6 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:shadow-md hover:border-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ borderColor: "#e2e8f0" }}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Re-audit (fresh)
-          </Link>
+            {reauditing ? "Starting…" : "Re-audit (fresh)"}
+          </button>
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 rounded-xl border bg-white px-6 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:shadow-md hover:border-slate-300"

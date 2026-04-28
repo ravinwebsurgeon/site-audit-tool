@@ -96,6 +96,12 @@ export async function POST(req: NextRequest) {
       { status: 201, headers: rateLimitHeaders(rateLimit) }
     );
   } catch (error) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'MISSING_ENV_KEY') {
+      return NextResponse.json(
+        { success: false, message: error.message, code: 'MISSING_ENV_KEY' },
+        { status: 503 }
+      );
+    }
     console.error('POST /api/audits:', error);
     return NextResponse.json({ success: false, message: 'Failed to create audit' }, { status: 500 });
   }
