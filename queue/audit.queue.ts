@@ -29,7 +29,9 @@ export async function addAuditJob(data: AuditJobData): Promise<void> {
   }
 
   if (!auditQueue) {
-    throw new Error('[queue] REDIS_URL is required for BullMQ. Set QSTASH_TOKEN to use QStash instead.');
+    const err = new Error('Queue service is not configured. Set QSTASH_TOKEN (for QStash) or REDIS_URL (for BullMQ) in your environment variables.');
+    (err as NodeJS.ErrnoException).code = 'MISSING_ENV_KEY';
+    throw err;
   }
   await auditQueue.add('process-audit', data, { jobId: data.reportId });
   console.log(`[queue] Enqueued BullMQ job for report ${data.reportId}`);

@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useToast } from '@/components/Toast';
 
 const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|::1|localhost)/i;
 
@@ -55,6 +56,7 @@ function validateUrl(raw: string): { normalized: string; error: string | null } 
 export default function AuditForm() {
   const router = useRouter();
   const { data: session } = useSession();
+  const toast = useToast();
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,11 @@ export default function AuditForm() {
 
       if (res.status === 422 && json.code === 'URL_NOT_REACHABLE') {
         setNotFoundUrl(normalized);
+        return;
+      }
+
+      if (json.code === 'MISSING_ENV_KEY') {
+        toast.error('Service not configured: ' + (json.message ?? 'Queue service (QStash/Redis) is missing. Check your environment variables.'));
         return;
       }
 

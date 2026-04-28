@@ -352,6 +352,9 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
                 const json = await r.json();
                 if (json.success) {
                   window.location.href = `/audit/${json.data.id}`;
+                } else if (json.code === 'MISSING_ENV_KEY') {
+                  toast.error('Service not configured: ' + (json.message ?? 'Queue service (QStash/Redis) is missing. Check your environment variables.'));
+                  setReauditing(false);
                 } else {
                   toast.error(json.message ?? "Failed to start re-audit.");
                   setReauditing(false);
