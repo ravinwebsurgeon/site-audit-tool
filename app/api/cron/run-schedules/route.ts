@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runDueSchedules } from '@/queue/scheduler';
 
-// Called by Vercel Cron every 15 minutes via GET request
+// Called by Vercel Cron every default 24 hours via GET request but you can set a custom time for local testing in vercel.json (e.g. "schedule": "*/1 * * * *" to run every minute).
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {

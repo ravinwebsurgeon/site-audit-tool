@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createAuditSchema } from '@/validators/audit';
-import { createAudit, processAudit } from '@/services/audit.service';
+import { createAudit } from '@/services/audit.service';
+import { addAuditJob } from '@/queue/audit.queue';
 import { getUserAudits } from '@/db/audit';
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 import type { Tier } from '@/lib/rate-limit';
@@ -74,11 +75,11 @@ export async function POST(req: NextRequest) {
 
     const { report, fromCache } = await createAudit(url, userId, forceNew);
 
-    // Fire-and-forget background processing
     if (!fromCache && report.status === 'PENDING') {
-      processAudit(report.id, url).catch((err) =>
-        console.error(`[audit] processAudit failed for ${report.id}:`, err)
-      );
+      // Always enqueue through addAuditJob:
+      //   • Vercel  → published to QStash (VERCEL env is set automatically)
+      //   • Local   → enqueued into BullMQ (requires `npm run worker`)
+      await addAuditJob({ reportId: report.id, url, userId, isScheduled: false });
     }
 
     return NextResponse.json(

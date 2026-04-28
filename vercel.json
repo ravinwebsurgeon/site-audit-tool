@@ -4,5 +4,13 @@
       "path": "/api/cron/run-schedules",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/worker/process-audit/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/audits/route.ts": {
+      "maxDuration": 30
+    }
+  }
 }
