@@ -3,46 +3,57 @@ import { getAuditById } from '@/db/audit';
 
 type Params = { params: Promise<{ id: string }> };
 
+// Cap at 25 attempts × 2s = 50s — safely under Vercel Pro's 60s limit.
+// The browser's EventSource auto-reconnects when the stream closes, so
+// audits longer than 50s continue seamlessly across reconnects.
+const MAX_ATTEMPTS = 25;
+const POLL_INTERVAL_MS = 2000;
+
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      const enqueue = (raw: string) => {
+        try { controller.enqueue(encoder.encode(raw)); } catch { /* stream closed */ }
       };
 
-      let done = false;
-      let attempts = 0;
-      const maxAttempts = 90; // 3 minutes at 2s intervals
+      const sendData = (payload: Record<string, unknown>) =>
+        enqueue(`data: ${JSON.stringify(payload)}\n\n`);
 
-      while (!done && attempts < maxAttempts) {
+      const sendPing = () => enqueue('event: ping\ndata: {}\n\n');
+
+      // Tell the browser to reconnect in 2 s if the stream closes mid-audit
+      enqueue('retry: 2000\n\n');
+
+      let attempts = 0;
+
+      while (attempts < MAX_ATTEMPTS) {
         const report = await getAuditById(id).catch(() => null);
 
         if (!report) {
-          send({ error: 'Audit not found' });
+          sendData({ error: 'Audit not found' });
           break;
         }
 
-        send({
+        sendData({
           id: report.id,
           status: report.status,
-          overallScore: report.overallScore,
           errorMessage: (report as { errorMessage?: string }).errorMessage ?? null,
         });
 
-        if (report.status === 'COMPLETED' || report.status === 'FAILED') {
-          done = true;
-          break;
-        }
+        if (report.status === 'COMPLETED' || report.status === 'FAILED') break;
 
-        await new Promise((resolve) => setTimeout(resolve, 2000));
         attempts++;
+
+        // Send a ping every 5 polls (~10 s) to prevent proxy/CDN idle timeouts
+        if (attempts % 5 === 0) sendPing();
+
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
       }
 
-      controller.close();
+      try { controller.close(); } catch { /* already closed */ }
     },
   });
 
@@ -50,6 +61,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
       Connection: 'keep-alive',
     },
   });

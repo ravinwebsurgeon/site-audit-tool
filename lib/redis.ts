@@ -1,10 +1,10 @@
 import IORedis from 'ioredis';
 
-if (!process.env.REDIS_URL) {
-  throw new Error('REDIS_URL environment variable is required');
-}
-
-export const redisConnection = new IORedis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
+// null when REDIS_URL is not set (e.g. Vercel production using QStash instead of BullMQ).
+// All consumers must null-check before use.
+export const redisConnection = process.env.REDIS_URL
+  ? new IORedis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+    })
+  : null;

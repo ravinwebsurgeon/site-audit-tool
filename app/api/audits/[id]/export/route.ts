@@ -1,10 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { getAuditById } from '@/db/audit';
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
+import type { Tier } from '@/lib/rate-limit';
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const tier = (session.user.subscriptionTier ?? 'FREE') as Tier;
+    const ip   = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous';
+    const rlKey = session.user.id ?? `ip:${ip}`;
+    const rateLimit = await checkRateLimit(rlKey, tier, 'exports', session.user.id);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Export limit reached. You can export ${rateLimit.limit} reports per day. Resets at ${rateLimit.resetAt.toUTCString()}.`,
+        },
+        { status: 429, headers: rateLimitHeaders(rateLimit) }
+      );
+    }
+
     const { id } = await params;
     const report = await getAuditById(id);
 
