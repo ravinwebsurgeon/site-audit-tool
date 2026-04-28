@@ -20,6 +20,9 @@ export async function GET() {
     database: {
       DATABASE_URL: present(process.env.DATABASE_URL),
     },
+     redis: {
+      REDIS_URL: present(process.env.REDIS_URL),
+    },
     auth: {
       NEXTAUTH_URL:    process.env.NEXTAUTH_URL ?? 'NOT SET ✗',
       NEXTAUTH_SECRET: present(process.env.NEXTAUTH_SECRET),
