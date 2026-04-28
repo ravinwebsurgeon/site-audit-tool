@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import ConfirmModal from '@/components/ConfirmModal';
 import { ScheduleCardSkeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 
 interface Schedule {
   id: string;
@@ -15,6 +16,48 @@ interface Schedule {
   lastRunAt: string | null;
   lastReportId: string | null;
   createdAt: string;
+}
+
+const PRIVATE_IP_RE = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|::1|localhost)/i;
+
+function validateUrl(raw: string): { normalized: string; error: string | null } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { normalized: '', error: null };
+
+  let normalized = trimmed;
+  if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  const { hostname } = parsed;
+
+  if (PRIVATE_IP_RE.test(hostname)) {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  const parts = hostname.split('.');
+  if (parts.length < 2 || parts[parts.length - 1].length < 2) {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  if (hostname.length > 253) {
+    return { normalized, error: 'Please Enter a Valid URL' };
+  }
+
+  return { normalized, error: null };
 }
 
 const FREQ_LABELS = { DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly' };
@@ -64,6 +107,7 @@ function timeAgo(iso: string) {
 
 export default function SchedulesPage() {
   const { status: sessionStatus } = useSession();
+  const toast = useToast();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -74,6 +118,9 @@ export default function SchedulesPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [runningNow, setRunningNow] = useState<string | null>(null);
+  const [urlTouched, setUrlTouched] = useState(false);
+
+  const inlineError = urlTouched && form.url.trim() ? validateUrl(form.url).error : null;
 
   useEffect(() => {
     if (sessionStatus !== 'authenticated') return;
@@ -96,7 +143,14 @@ export default function SchedulesPage() {
         body: JSON.stringify({ notifyOnComplete: next }),
       });
       const data = await res.json();
-      if (data.success) setNotifyOnComplete(next);
+      if (data.success) {
+        setNotifyOnComplete(next);
+        toast.success(next ? 'Email notifications enabled' : 'Email notifications disabled');
+      } else {
+        toast.error(data.message ?? 'Failed to update notification preference');
+      }
+    } catch {
+      toast.error('Network error — please try again');
     } finally {
       setNotifyLoading(false);
     }
@@ -105,10 +159,12 @@ export default function SchedulesPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setUrlTouched(true);
+
+    const { normalized, error } = validateUrl(form.url);
+    if (error) return;
+
     setCreating(true);
-
-    const normalized = form.url.trim().match(/^https?:\/\//) ? form.url.trim() : `https://${form.url.trim()}`;
-
     try {
       const res = await fetch('/api/schedules', {
         method: 'POST',
@@ -119,11 +175,15 @@ export default function SchedulesPage() {
       if (data.success) {
         setSchedules((prev) => [data.data, ...prev]);
         setForm({ url: '', frequency: 'WEEKLY' });
+        setUrlTouched(false);
+        toast.success('Schedule created successfully');
       } else {
         setFormError(data.message ?? 'Failed to create schedule');
+        toast.error(data.message ?? 'Failed to create schedule');
       }
     } catch {
       setFormError('Network error');
+      toast.error('Network error — please try again');
     } finally {
       setCreating(false);
     }
@@ -135,8 +195,12 @@ export default function SchedulesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !current }),
     });
-    if ((await res.json()).success) {
+    const data = await res.json();
+    if (data.success) {
       setSchedules((prev) => prev.map((s) => s.id === id ? { ...s, isActive: !current } : s));
+      toast.success(current ? 'Schedule paused' : 'Schedule resumed');
+    } else {
+      toast.error(data.message ?? 'Failed to update schedule');
     }
   }
 
@@ -149,7 +213,12 @@ export default function SchedulesPage() {
         setSchedules((prev) =>
           prev.map((s) => s.id === id ? { ...s, ...data.data.schedule } : s)
         );
+        toast.success('Audit queued successfully');
+      } else {
+        toast.error(data.message ?? 'Failed to run audit');
       }
+    } catch {
+      toast.error('Network error — please try again');
     } finally {
       setRunningNow(null);
     }
@@ -158,8 +227,12 @@ export default function SchedulesPage() {
   async function handleDelete(id: string) {
     setDeleting(true);
     const res = await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
-    if ((await res.json()).success) {
+    const data = await res.json();
+    if (data.success) {
       setSchedules((prev) => prev.filter((s) => s.id !== id));
+      toast.success('Schedule deleted');
+    } else {
+      toast.error(data.message ?? 'Failed to delete schedule');
     }
     setDeleting(false);
     setDeleteTarget(null);
@@ -225,9 +298,13 @@ export default function SchedulesPage() {
             type="text"
             placeholder="example.com or https://example.com"
             value={form.url}
-            onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-            required
-            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            onChange={(e) => { setForm((f) => ({ ...f, url: e.target.value })); setUrlTouched(true); }}
+            onBlur={() => setUrlTouched(true)}
+            className={`flex-1 rounded-xl border px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors ${
+              inlineError
+                ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
+                : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+            }`}
           />
           <select
             value={form.frequency}
@@ -240,13 +317,14 @@ export default function SchedulesPage() {
           </select>
           <button
             type="submit"
-            disabled={creating}
-            className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            disabled={creating || !!inlineError || !form.url.trim()}
+            className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           >
             {creating ? 'Scheduling…' : 'Schedule'}
           </button>
         </div>
-        {formError && <p className="mt-2 text-xs text-red-500">{formError}</p>}
+        {inlineError && <p className="mt-2 text-xs text-red-500">{inlineError}</p>}
+        {!inlineError && formError && <p className="mt-2 text-xs text-red-500">{formError}</p>}
       </form>
 
       {/* List */}

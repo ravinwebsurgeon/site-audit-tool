@@ -1,34 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { getAuditById } from '@/db/audit';
-import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit';
-import type { Tier } from '@/lib/rate-limit';
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
-
-    const tier = (session.user.subscriptionTier ?? 'FREE') as Tier;
-    const ip   = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'anonymous';
-    const rlKey = session.user.id ?? `ip:${ip}`;
-    const rateLimit = await checkRateLimit(rlKey, tier, 'exports', session.user.id);
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Export limit reached. You can export ${rateLimit.limit} reports per day. Resets at ${rateLimit.resetAt.toUTCString()}.`,
-        },
-        { status: 429, headers: rateLimitHeaders(rateLimit) }
-      );
-    }
-
     const { id } = await params;
     const report = await getAuditById(id);
 
@@ -59,7 +35,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       })
       .join('');
 
-    const severityOrder = { CRITICAL: 0, WARNING: 1, PASSED: 2 };
+    const severityOrder = { CRITICAL: 0, WARNING: 1, PASSED: 2 } as const;
     const sortedIssues = [...issues].sort(
       (a, b) => severityOrder[a.severity] - severityOrder[b.severity]
     );
@@ -132,13 +108,31 @@ export async function GET(req: NextRequest, { params }: Params) {
     .issue h3{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:6px}
     .issue p{font-size:13px;color:#475569;margin-bottom:8px;line-height:1.5}
     .recommendation{font-size:13px;color:#1e40af;background:#eff6ff;padding:8px 12px;border-radius:6px}
-    .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;display:flex;justify-content:space-between}
-    @media print{body{padding:0;background:#fff}.container{box-shadow:none;border-radius:0}}
+    .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+    .print-btn{display:block;margin:0 auto 24px;padding:10px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+    @media(max-width:600px){
+      body{padding:16px}
+      .container{padding:20px}
+      .header{flex-direction:column;align-items:flex-start;gap:16px}
+      .score-ring{align-self:flex-start}
+      .score-number{font-size:36px}
+      .summary{flex-wrap:wrap}
+      .pill{flex:1 1 calc(50% - 8px);min-width:120px}
+      .sections{grid-template-columns:repeat(2,1fr)}
+      .section-title{font-size:11px}
+      .section-score{font-size:18px}
+      h2{font-size:16px}
+    }
+    @media(max-width:380px){
+      .sections{grid-template-columns:1fr}
+      .pill{flex:1 1 100%}
+    }
+    @media print{body{padding:0;background:#fff}.container{box-shadow:none;border-radius:0}.print-btn{display:none}}
   </style>
-  <script>window.onload=function(){window.print();}</script>
 </head>
 <body>
 <div class="container">
+  <button class="print-btn" onclick="window.print()">Save as PDF</button>
   <div class="header">
     <div>
       <div class="logo">SiteAudit</div>
