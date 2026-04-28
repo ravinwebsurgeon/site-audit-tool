@@ -68,7 +68,7 @@ export default function ScoreTrendChart({ data }: ScoreTrendChartProps) {
 
   if (valid.length < 2) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+      <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-linear-to-br from-slate-50 to-white">
         <div className="text-center">
           <svg className="mx-auto mb-2 h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 17l4-8 4 4 4-6 4 4" />

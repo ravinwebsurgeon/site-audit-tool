@@ -102,7 +102,8 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    console.error('POST /api/audits:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[POST /api/audits] Unhandled error:', msg, error instanceof Error ? error.stack : '');
     return NextResponse.json({ success: false, message: 'Failed to create audit' }, { status: 500 });
   }
 }
