@@ -166,7 +166,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          {isAuthenticated && (
+          {/* {isAuthenticated && (
             <Link
               href="/schedules"
               className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-all shadow-sm"
@@ -176,7 +176,7 @@ export default function DashboardPage() {
               </svg>
               Schedules
             </Link>
-          )}
+          )} */}
           <Link
             href="/"
             className="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md"
