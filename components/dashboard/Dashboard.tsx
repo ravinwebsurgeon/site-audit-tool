@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import AuditCard from '@/components/AuditCard';
+import SiteAuditCard from '@/components/SiteAuditCard';
 import Pagination from '@/components/Pagination';
 import ScoreTrendChart from '@/components/ScoreTrendChart';
 import { AuditCardSkeleton, StatCardSkeleton } from '@/components/Skeleton';
@@ -24,6 +25,20 @@ interface PaginationMeta {
   total: number;
   totalPages: number;
 }
+
+interface SiteAuditSummary {
+  id: string;
+  rootUrl: string;
+  status: string;
+  avgScore: number | null;
+  totalPages: number;
+  completedPages: number;
+  failedPages: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+type Tab = 'page' | 'site';
 
 const TIER_INFO = {
   FREE:       { label: 'Free',       audits: 5,        upgrade: true },
@@ -66,16 +81,76 @@ function StatCard({ label, value, icon, iconBg, iconColor, valueColor, trend }: 
 
 export default function DashboardPage() {
   const { data: session, status: sessionStatus } = useSession();
+  const [tab, setTab] = useState<Tab>('page');
   const [audits, setAudits] = useState<AuditSummary[]>([]);
   const [trendData, setTrendData] = useState<AuditSummary[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta>({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
+  const [siteAudits, setSiteAudits] = useState<SiteAuditSummary[]>([]);
+  const [sitePagination, setSitePagination] = useState<PaginationMeta>({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [sitePage, setSitePage] = useState(1);
+  const [siteLoading, setSiteLoading] = useState(true);
+  const [siteError, setSiteError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const toast = useToast();
   const isAuthenticated = sessionStatus === 'authenticated';
+  const siteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadSiteRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const siteLoadedRef = useRef(false);
+
+  const loadSite = useCallback(async () => {
+    setSiteLoading(true);
+    setSiteError(null);
+    try {
+      const r = await fetch(`/api/audits/site?page=${sitePage}&pageSize=10`);
+      const data = await r.json();
+      if (data.success) {
+        setSiteAudits(data.data);
+        setSitePagination(data.pagination);
+        const hasActive = (data.data as SiteAuditSummary[]).some(
+          (a) => a.status === 'PENDING' || a.status === 'PROCESSING'
+        );
+        if (hasActive && !siteTimerRef.current) {
+          siteTimerRef.current = setInterval(() => loadSiteRef.current(), 3000);
+        } else if (!hasActive && siteTimerRef.current) {
+          clearInterval(siteTimerRef.current);
+          siteTimerRef.current = null;
+        }
+      } else {
+        setSiteError(data.message ?? 'Failed to load site audits');
+      }
+    } catch {
+      setSiteError('Network error');
+    } finally {
+      setSiteLoading(false);
+    }
+  }, [sitePage]);
+
+  useEffect(() => {
+    loadSiteRef.current = loadSite;
+  });
+
+  useEffect(() => {
+    if (!isAuthenticated || tab !== 'site') return;
+    if (siteLoadedRef.current) return;
+    siteLoadedRef.current = true;
+    void loadSiteRef.current();
+    return () => {
+      if (siteTimerRef.current) {
+        clearInterval(siteTimerRef.current);
+        siteTimerRef.current = null;
+      }
+    };
+  }, [isAuthenticated, tab]);
+
+  useEffect(() => {
+    if (!isAuthenticated || tab !== 'site') return;
+    siteLoadedRef.current = false;
+    void loadSiteRef.current();
+  }, [isAuthenticated, sitePage, refreshKey]);
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;
@@ -120,6 +195,8 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [sessionStatus, isAuthenticated, page, refreshKey]);
 
+
+
   async function handleDelete(id: string) {
     const res = await fetch(`/api/audits/${id}`, { method: 'DELETE' });
     const json = await res.json();
@@ -129,6 +206,18 @@ export default function DashboardPage() {
       toast.success('Audit deleted successfully');
     } else {
       toast.error(json.message ?? 'Failed to delete audit');
+    }
+  }
+
+  async function handleSiteDelete(id: string) {
+    const res = await fetch(`/api/audits/site/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) {
+      setSiteAudits((prev) => prev.filter((a) => a.id !== id));
+      setSitePagination((prev) => ({ ...prev, total: prev.total - 1 }));
+      toast.success('Site audit deleted successfully');
+    } else {
+      toast.error(json.message ?? 'Failed to delete site audit');
     }
   }
 
@@ -166,17 +255,6 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          {/* {isAuthenticated && (
-            <Link
-              href="/schedules"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-all shadow-sm"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Schedules
-            </Link>
-          )} */}
           <Link
             href="/"
             className="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md"
@@ -299,15 +377,85 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ── Tabs ── */}
+      {isAuthenticated && (
+        <div className="mb-6 flex gap-1 rounded-xl border bg-slate-50 p-1" style={{ borderColor: '#e8edf5', width: 'fit-content' }}>
+          {(['page', 'site'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition-all"
+              style={tab === t
+                ? { background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', boxShadow: '0 1px 4px rgba(99,102,241,0.3)' }
+                : { color: '#64748b' }
+              }
+            >
+              {t === 'page' ? 'Page Audits' : 'Site Audits'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Loading ── */}
-      {loading && (
+      {loading && tab === 'page' && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => <AuditCardSkeleton key={i} />)}
         </div>
       )}
 
+      {/* ── Site Audits Tab ── */}
+      {tab === 'site' && isAuthenticated && (
+        <>
+          {siteLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => <AuditCardSkeleton key={i} />)}
+            </div>
+          )}
+          {!siteLoading && siteError && (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-10 text-center">
+              <p className="text-red-600 font-medium mb-3">{siteError}</p>
+              <button onClick={() => setRefreshKey((k) => k + 1)} className="text-sm text-red-500 hover:text-red-700 font-medium underline">Retry</button>
+            </div>
+          )}
+          {!siteLoading && !siteError && siteAudits.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-16 text-center bg-white">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                <svg className="h-8 w-8" style={{ color: '#6366f1' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">No site audits yet</h3>
+              <p className="text-sm text-slate-400 mb-6 max-w-xs mx-auto">Run a site audit to crawl and analyse every page of your website</p>
+              <Link href="/" className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Audit a site
+              </Link>
+            </div>
+          )}
+          {!siteLoading && !siteError && siteAudits.length > 0 && (
+            <>
+              <div className="space-y-2.5">
+                {siteAudits.map((sa) => (
+                  <SiteAuditCard key={sa.id} {...sa} onDelete={handleSiteDelete} />
+                ))}
+              </div>
+              {sitePagination.totalPages > 1 && (
+                <div className="mt-8 flex flex-col items-center gap-2.5">
+                  <Pagination page={sitePagination.page} totalPages={sitePagination.totalPages} onPage={(p) => setSitePage(p)} />
+                  <p className="text-xs text-slate-400">
+                    Showing {(sitePagination.page - 1) * sitePagination.pageSize + 1}–{Math.min(sitePagination.page * sitePagination.pageSize, sitePagination.total)} of {sitePagination.total} site audits
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
       {/* ── Error ── */}
-      {!loading && error && (
+      {tab === 'page' && !loading && error && (
         <div className="rounded-2xl border border-red-100 bg-red-50 p-10 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100">
             <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +468,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Sign-in prompt ── */}
-      {!loading && !error && audits.length === 0 && !isAuthenticated && (
+      {tab === 'page' && !loading && !error && audits.length === 0 && !isAuthenticated && (
         <div className="rounded-2xl border border-dashed border-slate-200 p-16 text-center bg-white">
           <div
             className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
@@ -343,7 +491,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Empty state (authenticated) ── */}
-      {!loading && !error && audits.length === 0 && isAuthenticated && (
+      {tab === 'page' && !loading && !error && audits.length === 0 && isAuthenticated && (
         <div className="rounded-2xl border border-dashed border-slate-200 p-16 text-center bg-white">
           <div
             className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl"
@@ -369,7 +517,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Audit list ── */}
-      {!loading && !error && audits.length > 0 && (
+      {tab === 'page' && !loading && !error && audits.length > 0 && (
         <>
           {!isAuthenticated && (
             <div

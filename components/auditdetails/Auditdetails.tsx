@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import ScoreCard from "@/components/ScoreCard";
@@ -38,6 +38,112 @@ interface AuditReport {
   issues: AuditIssue[];
 }
 
+interface AiErrorInfo {
+  kind: "billing" | "ratelimit" | "overload" | "generic";
+  title: string;
+  detail: string;
+}
+
+function parseAiError(raw: string): AiErrorInfo {
+  const m = raw.toLowerCase();
+  if (
+    m.includes("credit balance") ||
+    m.includes("too low") ||
+    m.includes("billing") ||
+    m.includes("payment required") ||
+    m.includes("402")
+  ) {
+    return {
+      kind: "billing",
+      title: "AI recommendations unavailable",
+      detail:
+        "The AI service credits have been exhausted. Your scores and section data are still accurate — recommendations will return once the service is recharged.",
+    };
+  }
+  if (
+    m.includes("rate_limit") ||
+    m.includes("rate limit") ||
+    m.includes("too many requests") ||
+    m.includes("429")
+  ) {
+    return {
+      kind: "ratelimit",
+      title: "AI service rate limited",
+      detail: "Too many requests to the AI service. Please wait a moment and try again.",
+    };
+  }
+  if (m.includes("overloaded") || m.includes("529") || m.includes("service unavailable")) {
+    return {
+      kind: "overload",
+      title: "AI service temporarily busy",
+      detail: "The AI service is under heavy load. Please retry in a moment.",
+    };
+  }
+  return {
+    kind: "generic",
+    title: "Could not generate recommendations",
+    detail:
+      "AI recommendations failed to generate. Your audit scores are still accurate — you can retry below.",
+  };
+}
+
+const AI_ERROR_STYLE: Record<
+  AiErrorInfo["kind"],
+  { iconBg: string; iconBorder: string; iconColor: string; btnBorder: string; btnColor: string }
+> = {
+  billing: {
+    iconBg: "rgba(245,158,11,0.08)",
+    iconBorder: "rgba(245,158,11,0.2)",
+    iconColor: "#f59e0b",
+    btnBorder: "rgba(245,158,11,0.3)",
+    btnColor: "#b45309",
+  },
+  ratelimit: {
+    iconBg: "rgba(59,130,246,0.08)",
+    iconBorder: "rgba(59,130,246,0.2)",
+    iconColor: "#3b82f6",
+    btnBorder: "rgba(99,102,241,0.25)",
+    btnColor: "#6366f1",
+  },
+  overload: {
+    iconBg: "rgba(99,102,241,0.08)",
+    iconBorder: "rgba(99,102,241,0.2)",
+    iconColor: "#8b5cf6",
+    btnBorder: "rgba(99,102,241,0.25)",
+    btnColor: "#6366f1",
+  },
+  generic: {
+    iconBg: "rgba(239,68,68,0.08)",
+    iconBorder: "rgba(239,68,68,0.2)",
+    iconColor: "#ef4444",
+    btnBorder: "rgba(99,102,241,0.25)",
+    btnColor: "#6366f1",
+  },
+};
+
+async function generateAiRecommendations(
+  id: string,
+  setReport: React.Dispatch<React.SetStateAction<AuditReport | null>>,
+  setGenerating: React.Dispatch<React.SetStateAction<boolean>>,
+  setError: React.Dispatch<React.SetStateAction<string | null>>
+) {
+  setGenerating(true);
+  setError(null);
+  try {
+    const res = await fetch(`/api/audits/${id}/analyze`, { method: 'POST' });
+    const json = await res.json();
+    if (json.success && Array.isArray(json.issues)) {
+      setReport((prev) => prev ? { ...prev, issues: json.issues } : prev);
+    } else {
+      setError(json.message ?? 'Failed to generate recommendations');
+    }
+  } catch {
+    setError('Failed to generate recommendations. Please refresh the page.');
+  } finally {
+    setGenerating(false);
+  }
+}
+
 export default function AuditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const toast = useToast();
@@ -52,6 +158,8 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
   const [mailModalOpen, setMailModalOpen] = useState(false);
   const [mailSending, setMailSending] = useState(false);
   const [mailSent, setMailSent] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   async function handleSendEmail() {
     setMailSending(true);
@@ -114,7 +222,12 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
         setReport(data);
         setInitialLoading(false);
 
-        if (data.status === "COMPLETED") return;
+        if (data.status === "COMPLETED") {
+          if (data.issues.length === 0 && data.sections.length > 0) {
+            generateAiRecommendations(id, setReport, setGeneratingAi, setAiError);
+          }
+          return;
+        }
         if (data.status === "FAILED") {
           setError(data.errorMessage ?? "Audit processing failed. Please try again.");
           return;
@@ -139,6 +252,9 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
             setStatus(data.status);
             if (data.status === "FAILED") {
               setError(data.errorMessage ?? "Audit processing failed. Please try again.");
+            }
+            if (data.status === "COMPLETED" && data.issues.length === 0 && data.sections.length > 0) {
+              generateAiRecommendations(id, setReport, setGeneratingAi, setAiError);
             }
           }
         } catch { /* ignore transient errors */ }
@@ -174,7 +290,13 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
           try {
             const r = await fetch(`/api/audits/${id}`);
             const json = await r.json();
-            if (json.success) setReport(json.data as AuditReport);
+            if (json.success) {
+              const completed = json.data as AuditReport;
+              setReport(completed);
+              if (completed.issues.length === 0 && completed.sections.length > 0) {
+                generateAiRecommendations(id, setReport, setGeneratingAi, setAiError);
+              }
+            }
           } catch { /* fall through — status update below still fires */ }
           setStatus("COMPLETED");
         } else if (payload.status === "FAILED") {
@@ -200,7 +322,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
   }, [id]);
 
   if (initialLoading) return <AuditReportSkeleton />;
-  if (error) return <ErrorState message={error} />;
+  if (error) return <ErrorState message={error} reportUrl={report?.url} />;
   if (status === "PENDING" || status === "PROCESSING") {
     return <ProcessingLoader url={report?.url} status={status} />;
   }
@@ -303,7 +425,9 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
             <div>
               <h2 className="text-xl font-bold text-slate-900">Findings &amp; Recommendations</h2>
               <p className="mt-1 text-base text-slate-500">
-                {report.issues.length} items · prioritized by severity · powered by Claude AI
+                {generatingAi
+                  ? "Generating AI recommendations…"
+                  : `${report.issues.length} items · prioritized by severity · powered by Claude AI`}
               </p>
             </div>
             <div className="sm:flex items-center gap-2 mt-5 sm:mt-0">
@@ -322,7 +446,84 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
             </div>
           </div>
           <div className="p-3 sm:p-8">
-            <IssueList issues={report.issues} />
+            {generatingAi ? (
+              <div className="flex flex-col items-center py-20 gap-5 text-center">
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl shadow-sm"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                >
+                  <svg className="h-7 w-7 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-base font-semibold text-slate-800">Generating AI Recommendations</p>
+                  <p className="mt-1 text-sm text-slate-400">Claude is analysing the audit data — this takes a few seconds</p>
+                </div>
+              </div>
+            ) : aiError ? (
+              (() => {
+                const err = parseAiError(aiError);
+                const style = AI_ERROR_STYLE[err.kind];
+                return (
+                  <div className="flex flex-col items-center py-16 gap-5 text-center px-4">
+                    <div
+                      className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                      style={{ background: style.iconBg, border: `1px solid ${style.iconBorder}` }}
+                    >
+                      {err.kind === "billing" ? (
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          style={{ color: style.iconColor }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                      ) : err.kind === "ratelimit" || err.kind === "overload" ? (
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          style={{ color: style.iconColor }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                            d="M12 8v4l2.5 2.5M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          style={{ color: style.iconColor }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <div className="max-w-sm">
+                      <p className="text-base font-semibold text-slate-800">{err.title}</p>
+                      <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{err.detail}</p>
+                    </div>
+
+                    {err.kind !== "billing" && (
+                      <button
+                        onClick={() => generateAiRecommendations(id, setReport, setGeneratingAi, setAiError)}
+                        className="inline-flex items-center gap-2 rounded-xl border bg-white px-5 py-2.5 text-sm font-semibold shadow-sm hover:shadow-md transition-all"
+                        style={{ borderColor: style.btnBorder, color: style.btnColor }}
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry AI analysis
+                      </button>
+                    )}
+
+                    {err.kind === "billing" && (
+                      <p className="text-xs text-slate-400">
+                        Scores above are computed independently and are fully accurate.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <IssueList issues={report.issues} />
+            )}
           </div>
         </div>
 

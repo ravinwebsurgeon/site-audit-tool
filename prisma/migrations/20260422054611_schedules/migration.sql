@@ -1,11 +1,14 @@
--- CreateEnum
-CREATE TYPE "ScheduleFrequency" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY');
+-- CreateEnum (idempotent — 20260422000000 may have already created this)
+DO $$ BEGIN
+  CREATE TYPE "ScheduleFrequency" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AlterTable
-ALTER TABLE "users" ADD COLUMN     "notifyOnComplete" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "notifyOnComplete" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
-CREATE TABLE "schedules" (
+CREATE TABLE IF NOT EXISTS "schedules" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "url" TEXT NOT NULL,
@@ -21,7 +24,7 @@ CREATE TABLE "schedules" (
 );
 
 -- CreateTable
-CREATE TABLE "api_keys" (
+CREATE TABLE IF NOT EXISTS "api_keys" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -36,19 +39,27 @@ CREATE TABLE "api_keys" (
 );
 
 -- CreateIndex
-CREATE INDEX "schedules_userId_idx" ON "schedules"("userId");
+CREATE INDEX IF NOT EXISTS "schedules_userId_idx" ON "schedules"("userId");
 
 -- CreateIndex
-CREATE INDEX "schedules_nextRunAt_isActive_idx" ON "schedules"("nextRunAt", "isActive");
+CREATE INDEX IF NOT EXISTS "schedules_nextRunAt_isActive_idx" ON "schedules"("nextRunAt", "isActive");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "api_keys_keyHash_key" ON "api_keys"("keyHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "api_keys_keyHash_key" ON "api_keys"("keyHash");
 
 -- CreateIndex
-CREATE INDEX "api_keys_userId_idx" ON "api_keys"("userId");
+CREATE INDEX IF NOT EXISTS "api_keys_userId_idx" ON "api_keys"("userId");
 
--- AddForeignKey
-ALTER TABLE "schedules" ADD CONSTRAINT "schedules_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+  ALTER TABLE "schedules" ADD CONSTRAINT "schedules_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+  ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

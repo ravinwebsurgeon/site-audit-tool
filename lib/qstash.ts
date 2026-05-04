@@ -8,14 +8,18 @@ export const qstash = new Client({
   baseUrl: process.env.QSTASH_URL,
 });
 
-export function getWorkerUrl(): string {
-  // VERCEL_URL is set automatically by Vercel (no protocol prefix).
-  // Prefer explicit APP_URL / NEXTAUTH_URL so preview-deploy URLs work too.
-  // Strip trailing slash so we never produce double-slash URLs when composing the path.
-  const base = (
+function getBaseUrl(): string {
+  return (
     process.env.APP_URL ??
     process.env.NEXTAUTH_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-  ).replace(/\/$/, "");
-  return `${base}/api/worker/process-audit`;
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ).replace(/\/$/, '');
+}
+
+export function getWorkerUrl(): string {
+  return `${getBaseUrl()}/api/worker/process-audit`;
+}
+
+export function getSiteWorkerUrl(): string {
+  return `${getBaseUrl()}/api/worker/process-site-audit`;
 }

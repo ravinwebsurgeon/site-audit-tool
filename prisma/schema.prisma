@@ -19,12 +19,13 @@ model User {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  auditReports AuditReport[]
-  subscription Subscription?
-  schedules    Schedule[]
-  apiKeys      ApiKey[]
+  accounts         Account[]
+  sessions         Session[]
+  auditReports     AuditReport[]
+  siteAuditReports SiteAuditReport[]
+  subscription     Subscription?
+  schedules        Schedule[]
+  apiKeys          ApiKey[]
 
   @@map("users")
 }
@@ -87,6 +88,32 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model SiteAuditReport {
+  id             String      @id @default(cuid())
+  userId         String?
+  rootUrl        String
+  urlHash        String
+  status         AuditStatus @default(PENDING)
+  totalPages     Int         @default(0)
+  completedPages Int         @default(0)
+  failedPages    Int         @default(0)
+  avgScore       Float?
+  sitemapUrl     String?
+  pagesLimit     Int         @default(10)
+  errorMessage   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  completedAt    DateTime?
+
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pageReports AuditReport[]
+
+  @@index([userId])
+  @@index([urlHash])
+  @@index([status])
+  @@map("site_audit_reports")
+}
+
 model AuditReport {
   id           String      @id @default(cuid())
   userId       String?
@@ -95,17 +122,20 @@ model AuditReport {
   status       AuditStatus @default(PENDING)
   overallScore Int?
   errorMessage String?
+  siteAuditId  String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   completedAt  DateTime?
 
-  user     User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sections AuditSection[]
-  issues   AuditIssue[]
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  siteAudit SiteAuditReport? @relation(fields: [siteAuditId], references: [id], onDelete: Cascade)
+  sections  AuditSection[]
+  issues    AuditIssue[]
 
   @@index([userId])
   @@index([urlHash])
   @@index([status])
+  @@index([siteAuditId])
   @@index([createdAt])
   @@map("audit_reports")
 }

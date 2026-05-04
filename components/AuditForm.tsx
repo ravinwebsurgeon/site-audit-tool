@@ -63,6 +63,7 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
   const [notFoundUrl, setNotFoundUrl] = useState<string | null>(null);
   const [focused, setFocused] = useState(true);
   const [typedPlaceholder, setTypedPlaceholder] = useState('Enter website URL');
+  const [mode, setMode] = useState<'single' | 'site'>('single');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -129,7 +130,8 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/audits', {
+      const endpoint = mode === 'site' ? '/api/audits/site' : '/api/audits';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: normalized }),
@@ -162,7 +164,11 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
         return;
       }
 
-      router.push(`/audit/${json.data.id}`);
+      if (mode === 'site') {
+        router.push(`/site-audit/${json.data.id}`);
+      } else {
+        router.push(`/audit/${json.data.id}`);
+      }
     } catch {
       setError('Network error — please try again.');
     } finally {
@@ -226,6 +232,30 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
+      {/* Mode toggle */}
+      <div className="mb-3 flex justify-center">
+        <div
+          className="inline-flex rounded-xl p-1 gap-1"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {(['single', 'site'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className="rounded-lg px-4 py-1.5 text-xs font-semibold transition-all duration-200"
+              style={
+                mode === m
+                  ? { background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff' }
+                  : { color: 'rgba(148,163,184,0.7)' }
+              }
+            >
+              {m === 'single' ? 'Single Page' : 'Full Site'}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Gradient border wrapper — animates to vivid indigo/purple on focus */}
       <div
         className="relative rounded-2xl transition-all duration-300"
@@ -286,7 +316,7 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
               </>
             ) : (
               <>
-                <span>Run Audit</span>
+                <span>{mode === 'site' ? 'Audit Site' : 'Run Audit'}</span>
                 <svg className="h-4 w-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5-5 5M6 12h12" />
                 </svg>
@@ -302,7 +332,9 @@ export default function AuditForm({ autoFocus = false }: { autoFocus?: boolean }
           className="mt-2.5 text-center text-xs transition-opacity duration-500"
           style={{ color: 'rgba(148,163,184,0.42)' }}
         >
-          Instant audit &nbsp;·&nbsp; SEO &nbsp;·&nbsp; Performance &nbsp;·&nbsp; Security &nbsp;·&nbsp; ~10 sec
+          {mode === 'site'
+            ? 'Audits all pages via sitemap · SEO · Performance · Security'
+            : 'Instant audit · SEO · Performance · Security · ~10 sec'}
         </p>
       )}
 
