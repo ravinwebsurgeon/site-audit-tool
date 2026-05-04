@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 
 const PRODUCT_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Schedules', href: '/schedules' },
+  // { label: 'Schedules', href: '/schedules' },
   { label: 'Compare Reports', href: '/compare' },
 ];
 
