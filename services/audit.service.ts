@@ -51,6 +51,12 @@ export async function processAudit(reportId: string, url: string): Promise<void>
     // Fetch ONCE — all four services share the same page data
     const page = await fetchPage(url);
 
+    // Treat non-2xx responses as failures — auditing a 404/500 page produces
+    // meaningless scores and wastes AI quota.
+    if (page.statusCode < 200 || page.statusCode >= 400) {
+      throw new Error(`HTTP ${page.statusCode} — page not accessible`);
+    }
+
     const [seo, performance, security, accessibility] = await Promise.all([
       auditSeo(url, page),
       auditPerformance(url, page),
@@ -59,7 +65,18 @@ export async function processAudit(reportId: string, url: string): Promise<void>
     ]);
 
     const auditData: AuditData = { url, seo, performance, security, accessibility };
-    const aiResult = await analyzeWithAi(auditData);
+
+    let aiResult: import('@/types').AiAnalysisResult = { recommendations: [], summary: '' };
+    try {
+      aiResult = await analyzeWithAi(auditData);
+    } catch (aiError) {
+      // AI failure is non-fatal — the audit still has valid scores and section data.
+      // Credit exhaustion, rate limits, and timeouts should not mark the page as FAILED.
+      console.warn(
+        `[audit] AI analysis failed for ${url} — completing without recommendations:`,
+        aiError instanceof Error ? aiError.message : aiError
+      );
+    }
 
     const seoScore = computeSeoScore(seo);
     const perfScore = computePerformanceScore(performance);

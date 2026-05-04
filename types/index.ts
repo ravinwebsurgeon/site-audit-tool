@@ -37,6 +37,29 @@ export interface AuditJobData {
   url: string;
   userId?: string;
   isScheduled?: boolean;
+  siteAuditId?: string;
+}
+
+export interface SiteAuditJobData {
+  siteAuditId: string;
+  rootUrl: string;
+  userId?: string;
+  pagesLimit: number;
+}
+
+export interface SiteAuditReport {
+  id: string;
+  rootUrl: string;
+  status: AuditStatus;
+  totalPages: number;
+  completedPages: number;
+  failedPages: number;
+  avgScore: number | null;
+  sitemapUrl: string | null;
+  pagesLimit: number;
+  createdAt: Date;
+  completedAt: Date | null;
+  pageReports?: Pick<AuditReport, 'id' | 'url' | 'status' | 'overallScore' | 'createdAt' | 'completedAt'>[];
 }
 
 // ── SEO ───────────────────────────────────────────────────────────────────────

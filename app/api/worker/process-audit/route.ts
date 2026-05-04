@@ -3,17 +3,40 @@ import { Receiver } from "@upstash/qstash";
 import { processAudit } from "@/services/audit.service";
 import { sendAuditCompleteEmail } from "@/lib/mail";
 import { updateAuditStatus } from "@/db/audit";
+import { incrementSiteAuditProgress } from "@/db/site-audit";
 import { prisma } from "@/lib/prisma";
 import type { AuditJobData } from "@/types";
 
 // Allow up to 60 seconds (Vercel Pro). Audits typically finish in 15-45s.
 export const maxDuration = 60;
 
-async function handleJob(data: AuditJobData): Promise<void> {
-  const { reportId, url, userId, isScheduled } = data;
+async function handleJob(data: AuditJobData, isLastAttempt: boolean): Promise<void> {
+  const { reportId, url, userId, isScheduled, siteAuditId } = data;
   console.log(`[worker-api] Starting audit ${reportId} — ${url}`);
 
-  await processAudit(reportId, url);
+  let succeeded = false;
+  try {
+    await processAudit(reportId, url);
+    succeeded = true;
+  } finally {
+    if (siteAuditId && (succeeded || isLastAttempt)) {
+      // On the last failed attempt, verify the page isn't already COMPLETED
+      // from a previous retry before counting it as failed.
+      let countAsSucceeded = succeeded;
+      if (!succeeded) {
+        const report = await prisma.auditReport.findUnique({
+          where: { id: reportId },
+          select: { status: true },
+        });
+        if (report?.status === 'COMPLETED') countAsSucceeded = true;
+      }
+      try {
+        await incrementSiteAuditProgress(siteAuditId, countAsSucceeded);
+      } catch (err) {
+        console.error(`[worker-api] Failed to update site audit progress for ${siteAuditId}:`, err);
+      }
+    }
+  }
   console.log(`[worker-api] Audit ${reportId} finished`);
 
   if (isScheduled && userId) {
@@ -95,10 +118,18 @@ export async function POST(req: NextRequest) {
       data = (await req.json()) as AuditJobData;
     }
 
+    // Upstash-Retries-Remaining counts how many retries QStash will still make
+    // if this invocation returns 5xx. When it reaches 0 this is the final
+    // attempt. If the header is absent (dev / non-QStash path) treat it as the
+    // final attempt so progress is always counted.
+    const retriesRemainingHeader = req.headers.get('upstash-retries-remaining');
+    const retriesRemaining = retriesRemainingHeader !== null ? parseInt(retriesRemainingHeader, 10) : null;
+    const isLastAttempt = retriesRemaining === null || retriesRemaining === 0;
+
     // Race the audit against a hard deadline. If the deadline fires first we
     // still have ~5 s to write FAILED to the DB before Vercel terminates us.
     await Promise.race([
-      handleJob(data),
+      handleJob(data, isLastAttempt),
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error(`Worker deadline exceeded (${WORKER_DEADLINE_MS}ms)`)),
@@ -121,6 +152,20 @@ export async function POST(req: NextRequest) {
       } catch (dbErr) {
         console.error("[worker-api] Could not persist FAILED status:", dbErr);
       }
+    }
+
+    // Permanent errors (e.g. Anthropic credit exhaustion, invalid API key) return
+    // 4xx. Retrying them wastes QStash retry budget and will never succeed, so
+    // return 200 to acknowledge the job without triggering a retry.
+    const isPermanentError =
+      (err instanceof Error && /credit balance|invalid.*key|unauthorized/i.test(err.message)) ||
+      (typeof (err as { status?: number }).status === 'number' &&
+        (err as { status: number }).status >= 400 &&
+        (err as { status: number }).status < 500);
+
+    if (isPermanentError) {
+      console.warn("[worker-api] Permanent error — not retrying:", message);
+      return NextResponse.json({ error: "Permanent failure — not retrying" }, { status: 200 });
     }
 
     // Return 5xx so QStash retries on transient errors.
