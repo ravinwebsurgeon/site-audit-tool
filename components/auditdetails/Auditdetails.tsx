@@ -13,6 +13,7 @@ import ScoreRing from "./ScoreRing";
 import ProcessingLoader from "./ProcessingLoader";
 import ErrorState from "./ErrorState";
 import { CAT_ICONS, formatAgo } from "./utils";
+import { useRouter } from "next/navigation";
 
 interface AuditSection {
   id: string;
@@ -160,6 +161,8 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
   const [mailSent, setMailSent] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const router = useRouter();
 
   async function handleSendEmail() {
     setMailSending(true);
@@ -350,15 +353,26 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
         <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
           {/* Breadcrumb */}
           <div className="mb-8 flex items-center gap-2 text-sm">
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 text-slate-400 hover:text-slate-500 transition-colors"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              New Audit
-            </Link>
+            <button
+  onClick={() => router.back()}
+  className="flex items-center gap-1.5 text-slate-400 hover:text-slate-500 transition-colors"
+>
+  <svg
+    className="h-4 w-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+    />
+  </svg>
+
+  Go Back
+</button>
             <span className="text-slate-600">/</span>
             <span className="max-w-sm truncate font-mono text-xs text-slate-400">{report.url}</span>
             {completedAgo && (
