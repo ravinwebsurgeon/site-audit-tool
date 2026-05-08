@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
@@ -97,60 +97,50 @@ export default function DashboardPage() {
 
   const toast = useToast();
   const isAuthenticated = sessionStatus === 'authenticated';
-  const siteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const loadSiteRef = useRef<() => Promise<void>>(() => Promise.resolve());
-  const siteLoadedRef = useRef(false);
-
-  const loadSite = useCallback(async () => {
-    setSiteLoading(true);
-    setSiteError(null);
-    try {
-      const r = await fetch(`/api/audits/site?page=${sitePage}&pageSize=10`);
-      const data = await r.json();
-      if (data.success) {
-        setSiteAudits(data.data);
-        setSitePagination(data.pagination);
-        const hasActive = (data.data as SiteAuditSummary[]).some(
-          (a) => a.status === 'PENDING' || a.status === 'PROCESSING'
-        );
-        if (hasActive && !siteTimerRef.current) {
-          siteTimerRef.current = setInterval(() => loadSiteRef.current(), 3000);
-        } else if (!hasActive && siteTimerRef.current) {
-          clearInterval(siteTimerRef.current);
-          siteTimerRef.current = null;
-        }
-      } else {
-        setSiteError(data.message ?? 'Failed to load site audits');
-      }
-    } catch {
-      setSiteError('Network error');
-    } finally {
-      setSiteLoading(false);
-    }
-  }, [sitePage]);
-
-  useEffect(() => {
-    loadSiteRef.current = loadSite;
-  });
+  const siteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || tab !== 'site') return;
-    if (siteLoadedRef.current) return;
-    siteLoadedRef.current = true;
-    void loadSiteRef.current();
+
+    let cancelled = false;
+
+    async function load(showLoading: boolean) {
+      if (cancelled) return;
+      if (showLoading) setSiteLoading(true);
+      setSiteError(null);
+      try {
+        const r = await fetch(`/api/audits/site?page=${sitePage}&pageSize=10`);
+        const data = await r.json();
+        if (cancelled) return;
+        if (data.success) {
+          setSiteAudits(data.data);
+          setSitePagination(data.pagination);
+          const hasActive = (data.data as SiteAuditSummary[]).some(
+            (a) => a.status === 'PENDING' || a.status === 'PROCESSING'
+          );
+          if (hasActive) {
+            siteTimerRef.current = setTimeout(() => { void load(false); }, 3000);
+          }
+        } else {
+          setSiteError(data.message ?? 'Failed to load site audits');
+        }
+      } catch {
+        if (!cancelled) setSiteError('Network error');
+      } finally {
+        if (!cancelled) setSiteLoading(false);
+      }
+    }
+
+    void load(true);
+
     return () => {
+      cancelled = true;
       if (siteTimerRef.current) {
-        clearInterval(siteTimerRef.current);
+        clearTimeout(siteTimerRef.current);
         siteTimerRef.current = null;
       }
     };
-  }, [isAuthenticated, tab]);
-
-  useEffect(() => {
-    if (!isAuthenticated || tab !== 'site') return;
-    siteLoadedRef.current = false;
-    void loadSiteRef.current();
-  }, [isAuthenticated, sitePage, refreshKey]);
+  }, [isAuthenticated, tab, sitePage, refreshKey]);
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;
