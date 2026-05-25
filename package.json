@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --names \"next,qstash\" --prefix-colors \"cyan,yellow\" \"node --max-http-header-size=32768 node_modules/next/dist/bin/next dev\" \"tsx scripts/local-qstash-server.ts\"",
+    "dev": "node api.js && concurrently --names \"next,qstash\" --prefix-colors \"cyan,yellow\" \"node --max-http-header-size=32768 node_modules/next/dist/bin/next dev\" \"tsx scripts/local-qstash-server.ts\"",
     "dev:next": "node --max-http-header-size=32768 node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
+    "build": "node api.js && prisma generate && next build",
+    "start": "node api.js && next start",
     "lint": "eslint",
     "worker": "tsx queue/worker.ts",
     "worker:watch": "tsx --watch queue/worker.ts",
